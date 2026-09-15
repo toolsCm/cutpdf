@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editor de PDF</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg,#667eea,#764ba2);
+  min-height:100vh;
+}
+.container { max-width:1200px; margin:0 auto; padding:20px; }
+.card { background:rgba(255,255,255,0.97); border-radius:16px; box-shadow:0 20px 40px rgba(0,0,0,0.15); padding:30px; }
+.page-title {
+  font-size:2.2em; background:linear-gradient(45deg,#667eea,#764ba2);
+  background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  text-align:center; margin-bottom:10px;
+}
+.subtitle { text-align:center; color:#6c757d; margin-bottom:20px; }
+.hidden { display:none !important; }
+
+.upload-area { border:3px dashed #667eea; border-radius:14px; padding:60px 20px; text-align:center; background:#f5f7ff; cursor:pointer; transition:.2s; }
+.upload-area:hover { background:#eef1ff; }
+.upload-area.dragover { border-color:#28a745; background:#eafaf0; }
+
+.btn { background:linear-gradient(45deg,#667eea,#764ba2); color:#fff; border:none; padding:10px 22px; border-radius:20px; font-size:14px; cursor:pointer; margin:4px; transition:.2s; }
+.btn:hover { transform:translateY(-2px); box-shadow:0 8px 18px rgba(102,126,234,.35); }
+.btn-secondary { background:linear-gradient(45deg,#6c757d,#495057); }
+.btn-save { background:linear-gradient(45deg,#28a745,#1e7e34); }
+
+.option-card { background:#fff; border:2px solid #e9ecef; border-radius:12px; padding:20px; text-align:center; cursor:pointer; transition:.2s; }
+.option-card:hover { border-color:#a9b8ff; }
+.option-card.selected { border-color:#667eea; background:#f5f7ff; }
+
+.progress-bar { width:100%; height:6px; background:#e9ecef; border-radius:3px; overflow:hidden; margin:14px 0; }
+.progress-fill { height:100%; width:0%; background:linear-gradient(45deg,#667eea,#764ba2); transition:.2s; }
+
+.thumb-toolbar { display:flex; align-items:center; justify-content:center; gap:12px; margin:14px 0; flex-wrap:wrap; }
+.thumbs-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px,1fr)); gap:16px; padding:15px 0; }
+.thumb-box { background:#fff; border-radius:10px; padding:10px; box-shadow:0 4px 12px rgba(0,0,0,.1); cursor:pointer; transition:.2s; border:3px solid transparent; }
+.thumb-box:hover { transform:translateY(-4px); box-shadow:0 10px 22px rgba(0,0,0,.18); }
+.thumb-box.edited { border-color:#28a745; }
+.thumb-img-wrap { width:100%; display:flex; align-items:center; justify-content:center; background:#f1f2f6; border-radius:6px; overflow:hidden; }
+.thumb-img-wrap img { max-width:100%; max-height:100%; object-fit:contain; }
+.thumb-index { text-align:center; margin-top:8px; font-weight:800; color:#343a40; font-size:18px; }
+.thumb-sub { text-align:center; color:#adb5bd; font-size:10.5px; margin-top:1px; }
+
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.88); display:none; align-items:center; justify-content:center; z-index:1000; padding:16px; }
+.modal-overlay.show { display:flex; }
+.modal-box { background:#fff; border-radius:14px; padding:16px; max-width:96vw; max-height:96vh; overflow:auto; }
+.editor-flex { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+
+.canvas-wrap { position:relative; background:#eee; border:2px solid #dee2e6; border-radius:8px; display:inline-block; line-height:0; overflow:hidden; }
+#editorCanvas { display:block; }
+.dark-mask { position:absolute; background:rgba(0,0,0,.55); pointer-events:none; }
+
+.crop-box { position:absolute; border:2px solid #007bff; cursor:move; overflow:hidden; }
+#cropPreview { position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:none; }
+.handle { position:absolute; width:12px; height:12px; background:#007bff; border:2px solid #fff; border-radius:50%; z-index:5; }
+.handle.nw{top:-7px;left:-7px;cursor:nw-resize;} .handle.n{top:-7px;left:50%;margin-left:-6px;cursor:n-resize;}
+.handle.ne{top:-7px;right:-7px;cursor:ne-resize;} .handle.e{top:50%;right:-7px;margin-top:-6px;cursor:e-resize;}
+.handle.se{bottom:-7px;right:-7px;cursor:se-resize;} .handle.s{bottom:-7px;left:50%;margin-left:-6px;cursor:s-resize;}
+.handle.sw{bottom:-7px;left:-7px;cursor:sw-resize;} .handle.w{top:50%;left:-7px;margin-top:-6px;cursor:w-resize;}
+
+/* ---- Panel compacto ---- */
+.panel { width:250px; flex-shrink:0; background:#f8f9fa; border-radius:10px; padding:12px; max-height:80vh; overflow-y:auto; font-size:12px; }
+.field-group { margin-bottom:12px; }
+.field-group label { display:block; font-weight:700; margin-bottom:4px; color:#495057; font-size:11.5px; }
+.field-group small { display:block; color:#adb5bd; font-size:10px; margin-top:2px; }
+.dim-row { display:grid; grid-template-columns:1fr 1fr 44px; gap:4px; }
+.dim-row input, .dim-row select { padding:4px; border:1px solid #ced4da; border-radius:5px; font-size:11px; text-align:center; }
+.aspect-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
+.aspect-btn { padding:5px; border:1px solid #ced4da; background:#fff; border-radius:5px; cursor:pointer; font-size:10.5px; }
+.aspect-btn.active, .aspect-btn:hover { background:#667eea; color:#fff; border-color:#667eea; }
+.aspect-btn.custom { background:#fff3e0; border-color:#ff9800; }
+.aspect-btn.custom.active { background:#ff9800; color:#fff; }
+.apply-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px; }
+.apply-grid .btn { padding:5px; font-size:9.5px; margin:0; }
+.btn.small { padding:5px; font-size:11px; width:100%; margin-top:5px; }
+
+/* ---- Slider + stepper numérico (zoom/rotación) ---- */
+.slider-row { display:flex; align-items:center; gap:6px; }
+.slider-wrap { position:relative; flex:1; height:20px; display:flex; align-items:center; }
+.slider-wrap input[type=range] { width:100%; }
+.tick-mark { position:absolute; top:1px; width:2px; height:14px; background:#868e96; transform:translateX(-50%); cursor:pointer; border-radius:1px; }
+.stepper {
+  background:#14181f; border-radius:9px; display:flex; align-items:center;
+  padding:3px 4px; gap:2px; flex-shrink:0;
+}
+.stepper input {
+  width:48px; background:transparent; border:none; color:#fff; text-align:center;
+  font-size:12px; font-weight:600; outline:none;
+}
+.stepper .unit { color:#9aa4b2; font-size:11px; }
+.stepper .arrows { display:flex; flex-direction:column; }
+.stepper .arrows button {
+  background:none; border:none; color:#9aa4b2; cursor:pointer; font-size:9px; line-height:8px; padding:0 2px;
+}
+.stepper .arrows button:hover { color:#fff; }
+
+.export-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:16px; margin:18px 0; }
+.export-sub { max-width:460px; margin:0 auto 18px; text-align:left; background:#f8f9fa; padding:14px; border-radius:10px; }
+.export-sub label { display:block; margin:5px 0; font-size:13px; }
+.export-sub input[type=text]{ width:100%; padding:8px; border:1px solid #ced4da; border-radius:6px; margin-top:5px; }
+
+.toast { position:fixed; top:20px; right:20px; background:#28a745; color:#fff; padding:13px 20px; border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,.3); z-index:5000; font-weight:600; transform:translateX(120%); transition:transform .3s; max-width:320px;}
+.toast.show { transform:translateX(0); }
+</style>
+</head>
+<body>
+
+<div id="stepUpload" class="container">
+  <div class="card">
+    <h1 class="page-title">📄 Editor de PDF</h1>
+    <p class="subtitle">Sube tu PDF (hasta 100MB / 2000 páginas), elige la división y edita</p>
+
+    <div class="upload-area" id="uploadArea">
+      <div style="font-size:46px;margin-bottom:10px;">📁</div>
+      <h3>Arrastra tu PDF aquí o haz clic para seleccionar</h3>
+      <p class="subtitle" style="margin:10px 0;">Archivos .pdf grandes soportados</p>
+      <input type="file" id="pdfInput" accept="application/pdf" class="hidden">
+      <button class="btn" id="btnSelectFile" type="button">Seleccionar PDF</button>
+    </div>
+
+    <div id="divisionBox" class="hidden" style="margin-top:26px;">
+      <h3 style="text-align:center;margin-bottom:16px;">📐 ¿Cómo dividir cada página?</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:420px;margin:0 auto;">
+        <div class="option-card selected" data-division="horizontal">
+          <div style="font-size:40px;">⬌</div><h4>Horizontal</h4>
+          <p style="font-size:13px;color:#666;">Mitad superior / inferior</p>
+        </div>
+        <div class="option-card" data-division="vertical">
+          <div style="font-size:40px;">⬍</div><h4>Vertical</h4>
+          <p style="font-size:13px;color:#666;">Mitad izquierda / derecha</p>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:20px;">
+        <button class="btn" id="btnProcess" type="button">Procesar PDF</button>
+        <button class="btn btn-secondary" id="btnCancelDivision" type="button">Cancelar</button>
+      </div>
+    </div>
+
+    <div id="progressBox" class="hidden" style="margin-top:20px;">
+      <h3 id="progressTitle">Procesando PDF...</h3>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <p id="progressText">Iniciando...</p>
+    </div>
+  </div>
+</div>
+
+<div id="stepThumbs" class="container hidden">
+  <div class="card">
+    <h2 class="page-title">🖼️ Miniaturas</h2>
+    <p class="subtitle">Haz clic en una miniatura para editarla · el número grande indica el orden (par/impar)</p>
+
+    <div class="thumb-toolbar">
+      <span>🔍 Tamaño:</span>
+      <input type="range" id="thumbSize" min="140" max="380" value="190" step="10" style="width:200px;">
+      <span id="thumbSizeVal">190px</span>
+    </div>
+
+    <div style="text-align:center;margin-bottom:10px;">
+      <button class="btn" id="btnGoExport" type="button">Siguiente: Exportar →</button>
+      <button class="btn btn-secondary" id="btnNewPdf" type="button">Cargar otro PDF</button>
+    </div>
+
+    <div id="thumbsGrid" class="thumbs-grid"></div>
+  </div>
+</div>
+
+<div id="editorOverlay" class="modal-overlay">
+  <div class="modal-box" id="modalBox">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <h3 style="font-size:16px;">✏️ Editar página</h3>
+      <button class="btn btn-secondary" id="btnCloseEditor" type="button" style="font-size:12px;padding:7px 14px;">Guardar y cerrar</button>
+    </div>
+
+    <div class="editor-flex">
+      <div class="canvas-wrap" id="canvasWrap">
+        <canvas id="editorCanvas"></canvas>
+        <div class="dark-mask" id="maskTop"></div>
+        <div class="dark-mask" id="maskBottom"></div>
+        <div class="dark-mask" id="maskLeft"></div>
+        <div class="dark-mask" id="maskRight"></div>
+        <div class="crop-box" id="cropBox">
+          <canvas id="cropPreview"></canvas>
+          <div class="handle nw"></div><div class="handle n"></div><div class="handle ne"></div>
+          <div class="handle e"></div><div class="handle se"></div><div class="handle s"></div>
+          <div class="handle sw"></div><div class="handle w"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="field-group">
+          <label>📐 Tamaño del recorte</label>
+          <div class="dim-row">
+            <input type="number" id="dimWidth" placeholder="Ancho">
+            <input type="number" id="dimHeight" placeholder="Alto">
+            <select id="dimUnit"><option value="px">px</option><option value="mm">mm</option><option value="cm">cm</option></select>
+          </div>
+          <button class="btn small" id="btnApplyDim" type="button">Aplicar tamaño</button>
+        </div>
+
+        <div class="field-group">
+          <label>📏 Proporción (bloquea el recorte)</label>
+          <div class="aspect-grid" id="aspectGrid">
+            <button class="aspect-btn active" data-ratio="0">Libre</button>
+            <button class="aspect-btn" data-ratio="1.4142">A4 Vert.</button>
+            <button class="aspect-btn" data-ratio="0.7071">A4 Horiz.</button>
+            <button class="aspect-btn" data-ratio="1.294">Oficio Vert.</button>
+            <button class="aspect-btn" data-ratio="0.7727">Oficio Horiz.</button>
+            <button class="aspect-btn" data-ratio="0.75">4:3</button>
+            <button class="aspect-btn" data-ratio="0.5625">16:9</button>
+            <button class="aspect-btn" data-ratio="1">1:1</button>
+          </div>
+          <button class="btn small" style="background:linear-gradient(45deg,#ff9800,#f57c00);" id="btnSaveCustomRatio" type="button">💾 Guardar proporción (global)</button>
+        </div>
+
+        <div class="field-group">
+          <label>🔍 Zoom</label>
+          <div class="slider-row">
+            <div class="slider-wrap">
+              <input type="range" id="zoomRange" min="50" max="300" value="100" step="2">
+              <div class="tick-mark" id="zoomTick" title="Restablecer a 100%"></div>
+            </div>
+            <div class="stepper">
+              <input type="number" id="zoomInput" min="50" max="300" step="2" value="100">
+              <span class="unit">%</span>
+              <div class="arrows">
+                <button type="button" id="zoomUp">▲</button>
+                <button type="button" id="zoomDown">▼</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label>🔄 Rotación</label>
+          <div class="slider-row">
+            <div class="slider-wrap">
+              <input type="range" id="rotRange" min="-180" max="180" value="0" step="1">
+              <div class="tick-mark" id="rotTick" title="Restablecer a 0°"></div>
+            </div>
+            <div class="stepper">
+              <input type="number" id="rotInput" min="-180" max="180" step="1" value="0">
+              <span class="unit">°</span>
+              <div class="arrows">
+                <button type="button" id="rotUp">▲</button>
+                <button type="button" id="rotDown">▼</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label>🎨 Relleno de margen</label>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <input type="checkbox" id="fillEnabled"><span>Activar</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+            <input type="color" id="fillColor" value="#ffffff" style="width:32px;height:26px;">
+            <input type="range" id="fillOpacity" min="0" max="1" step="0.05" value="1" style="flex:1;">
+            <span id="fillOpacityVal" style="width:32px;">100%</span>
+          </div>
+          <div class="dim-row" style="grid-template-columns:1fr 1fr;margin-top:6px;">
+            <input type="number" id="marginTB" placeholder="Sup/Inf %" min="0" max="45" value="8">
+            <input type="number" id="marginLR" placeholder="Izq/Der %" min="0" max="45" value="8">
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label>⚡ Aplicar a más páginas</label>
+          <div class="apply-grid">
+            <button class="btn btn-secondary" id="btnApplyAll" type="button">Todas</button>
+            <button class="btn btn-secondary" id="btnApplyOdd" type="button">Impares</button>
+            <button class="btn btn-secondary" id="btnApplyEven" type="button">Pares</button>
+          </div>
+          <small>Impar/Par según el número grande de la miniatura.</small>
+        </div>
+
+        <div class="field-group" style="display:flex;gap:6px;">
+          <button class="btn btn-secondary" id="btnResetEdit" type="button" style="flex:1;">Restablecer</button>
+          <button class="btn btn-save" id="btnSaveEdit" type="button" style="flex:1;">💾 Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="stepExport" class="container hidden">
+  <div class="card">
+    <h2 class="page-title">💾 Exportar</h2>
+    <p class="subtitle">Elige el formato de salida</p>
+
+    <div class="export-grid">
+      <div class="option-card selected" data-format="pdf"><h3>📄 PDF</h3><p style="font-size:13px;color:#666;">Un solo archivo PDF</p></div>
+      <div class="option-card" data-format="jpg"><h3>🖼️ JPG</h3><p style="font-size:13px;color:#666;">Imágenes (agrupa en ZIP si son más de 2)</p></div>
+      <div class="option-card" data-format="zip"><h3>📦 ZIP</h3><p style="font-size:13px;color:#666;">Grupo de imágenes en un archivo</p></div>
+    </div>
+
+    <div id="pageRangeOptions" class="export-sub hidden">
+      <label>Páginas a exportar (número de página original del PDF)</label>
+      <input type="text" id="pageRangeInput" placeholder="Ej: 7,18  ó  1-5,57-68  (vacío = todas)">
+    </div>
+
+    <div id="zipOptions" class="export-sub hidden">
+      <label><input type="radio" name="zipScope" value="all" checked> Todas las páginas</label>
+      <label><input type="radio" name="zipScope" value="odd"> Solo impares (según numeración de miniaturas)</label>
+      <label><input type="radio" name="zipScope" value="even"> Solo pares (según numeración de miniaturas)</label>
+    </div>
+
+    <div style="text-align:center;">
+      <h3 style="margin-bottom:10px;">🔍 Resolución</h3>
+      <label style="margin-right:16px;"><input type="radio" name="res" value="1" checked> Original</label>
+      <label style="margin-right:16px;"><input type="radio" name="res" value="1.5"> 1.5x</label>
+      <label><input type="radio" name="res" value="2"> 2x</label>
+
+      <div style="margin-top:24px;">
+        <button class="btn" id="btnExport" type="button" style="font-size:16px;padding:13px 32px;">🚀 Exportar</button>
+        <button class="btn btn-secondary" id="btnBackThumbs" type="button">← Volver</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ==================== CONFIG / ESTADO ==================== */
+const EDIT_SCALE = 1.8;   // resolución base usada para editar / exportar bajo demanda
+const state = {
+  division: 'horizontal',
+  pdfDoc: null,
+  pages: [],           // {id, pageNumber, half, index, thumbURL, editedCanvas, editState}
+  editingId: null,
+  editingSourceCanvas: null, // canvas de la página completa, solo durante la edición actual
+  aspectRatio: 0
+};
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+function $(id){ return document.getElementById(id); }
+function show(id){ $(id).classList.remove('hidden'); }
+function hide(id){ $(id).classList.add('hidden'); }
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
+
+/* ==================== SUBIDA ==================== */
+function initUpload(){
+  const uploadArea = $('uploadArea');
+  $('btnSelectFile').addEventListener('click', e=>{ e.stopPropagation(); $('pdfInput').click(); });
+  uploadArea.addEventListener('click', ()=> $('pdfInput').click());
+  $('pdfInput').addEventListener('change', e=>{
+    const file = e.target.files[0];
+    if (file && file.type === 'application/pdf') onFileChosen(file);
+    else if(file) alert('Selecciona un archivo PDF válido.');
+  });
+  uploadArea.addEventListener('dragover', e=>{ e.preventDefault(); uploadArea.classList.add('dragover'); });
+  uploadArea.addEventListener('dragleave', ()=> uploadArea.classList.remove('dragover'));
+  uploadArea.addEventListener('drop', e=>{
+    e.preventDefault(); uploadArea.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type === 'application/pdf') onFileChosen(file);
+  });
+  document.querySelectorAll('#divisionBox .option-card').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      document.querySelectorAll('#divisionBox .option-card').forEach(c=>c.classList.remove('selected'));
+      card.classList.add('selected'); state.division = card.dataset.division;
+    });
+  });
+  $('btnCancelDivision').addEventListener('click', resetToUpload);
+  $('btnProcess').addEventListener('click', ()=>{
+    if (!state.pendingFile) return;
+    hide('divisionBox'); show('progressBox');
+    processPdf(state.pendingFile);
+  });
+}
+
+function onFileChosen(file){
+  if (file.size > 100*1024*1024){
+    if(!confirm('El archivo supera 100MB. Puede tardar bastante en procesarse. ¿Continuar?')) return;
+  }
+  state.pendingFile = file;
+  $('uploadArea').style.display = 'none';
+  show('divisionBox');
+}
+
+function resetToUpload(){
+  state.pendingFile = null; state.pdfDoc = null; state.pages = [];
+  state.editingId = null; state.editingSourceCanvas = null;
+  hide('divisionBox'); hide('progressBox'); hide('stepThumbs'); hide('stepExport');
+  show('stepUpload');
+  $('uploadArea').style.display = 'block';
+  $('pdfInput').value = ''; $('progressFill').style.width = '0%';
+}
+
+/* ==================== PROCESAMIENTO (lazy / memoria controlada) ==================== */
+function getThumbScale(totalPages){
+  if (totalPages<=60) return 1.0;
+  if (totalPages<=200) return 0.7;
+  if (totalPages<=600) return 0.45;
+  if (totalPages<=1200) return 0.3;
+  return 0.2;
+}
+
+async function processPdf(file){
+  try{
+    const buffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data:buffer}).promise;
+    state.pdfDoc = pdf;
+    const total = pdf.numPages;
+    state.pages = [];
+    const thumbScale = getThumbScale(total);
+    let index = 0;
+
+    for (let i=1;i<=total;i++){
+      setProgress(`Generando miniaturas: página ${i} de ${total}...`, (i/total)*100);
+
+      const page = await pdf.getPage(i);
+      let viewport = page.getViewport({ scale: thumbScale });
+      // límite de seguridad de tamaño de miniatura
+      if (viewport.width > 700){
+        viewport = page.getViewport({ scale: thumbScale * (700/viewport.width) });
+      }
+      const full = document.createElement('canvas');
+      full.width = viewport.width; full.height = viewport.height;
+      await page.render({ canvasContext: full.getContext('2d'), viewport }).promise;
+
+      if (state.division === 'horizontal'){
+        const h = full.height/2;
+        index++; state.pages.push(makeHalfEntry(full,0,0,full.width,h,i,'top',index));
+        index++; state.pages.push(makeHalfEntry(full,0,h,full.width,h,i,'bottom',index));
+      } else {
+        const w = full.width/2;
+        index++; state.pages.push(makeHalfEntry(full,0,0,w,full.height,i,'left',index));
+        index++; state.pages.push(makeHalfEntry(full,w,0,w,full.height,i,'right',index));
+      }
+
+      if (i % 15 === 0) await new Promise(r=>setTimeout(r,0)); // libera el hilo de UI
+    }
+
+    setProgress('¡Completado!', 100);
+    setTimeout(renderThumbs, 400);
+
+  } catch(err){
+    console.error(err);
+    alert('No se pudo procesar el PDF: ' + err.message);
+    resetToUpload();
+  }
+}
+
+function makeHalfEntry(sourceFull, sx, sy, sw, sh, pageNumber, half, index){
+  const c = document.createElement('canvas');
+  c.width = sw; c.height = sh;
+  c.getContext('2d').drawImage(sourceFull, sx, sy, sw, sh, 0, 0, sw, sh);
+  const thumbURL = c.toDataURL('image/jpeg', 0.82);
+  return { id:`p${pageNumber}-${half}`, pageNumber, half, index, thumbURL, editedCanvas:null, editState:null };
+}
+
+function setProgress(text, pct){ $('progressText').textContent=text; $('progressFill').style.width=pct+'%'; }
+
+/* Renderiza bajo demanda una página completa del PDF a una escala dada */
+async function getFullPageCanvas(pageNumber, scale){
+  const page = await state.pdfDoc.getPage(pageNumber);
+  const viewport = page.getViewport({ scale });
+  const c = document.createElement('canvas');
+  c.width = viewport.width; c.height = viewport.height;
+  await page.render({ canvasContext:c.getContext('2d'), viewport }).promise;
+  return c;
+}
+
+function cropDefaultHalf(fullCanvas, half){
+  const c = document.createElement('canvas');
+  let sx=0, sy=0, sw=fullCanvas.width, sh=fullCanvas.height;
+  if (half==='top'){ sh/=2; }
+  else if (half==='bottom'){ sh/=2; sy=sh; }
+  else if (half==='left'){ sw/=2; }
+  else if (half==='right'){ sw/=2; sx=sw; }
+  c.width=sw; c.height=sh;
+  c.getContext('2d').drawImage(fullCanvas, sx,sy,sw,sh, 0,0,sw,sh);
+  return c;
+}
+
+/* ==================== MINIATURAS ==================== */
+function renderThumbs(){
+  hide('stepUpload'); show('stepThumbs');
+  const grid = $('thumbsGrid'); grid.innerHTML = '';
+
+  state.pages.forEach(p=>{
+    const box = document.createElement('div');
+    box.className = 'thumb-box' + (p.editedCanvas ? ' edited' : '');
+    box.dataset.id = p.id;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'thumb-img-wrap';
+    wrap.style.height = $('thumbSize').value + 'px';
+    const img = document.createElement('img');
+    img.src = p.editedCanvas ? p.editedCanvas.toDataURL() : p.thumbURL;
+    wrap.appendChild(img);
+
+    const idx = document.createElement('div');
+    idx.className = 'thumb-index'; idx.textContent = p.index;
+
+    const halfNames = {top:'Superior', bottom:'Inferior', left:'Izquierda', right:'Derecha'};
+    const sub = document.createElement('div');
+    sub.className = 'thumb-sub';
+    sub.textContent = `Página ${p.pageNumber} · ${halfNames[p.half]}`;
+
+    box.appendChild(wrap); box.appendChild(idx); box.appendChild(sub);
+    box.addEventListener('click', ()=> openEditor(p.id));
+    grid.appendChild(box);
+  });
+}
+
+function refreshThumbSizes(){
+  const size = $('thumbSize').value;
+  $('thumbSizeVal').textContent = size + 'px';
+  document.querySelectorAll('.thumb-img-wrap').forEach(w=> w.style.height = size + 'px');
+}
+
+function updateThumbImage(id){
+  const p = state.pages.find(pg=>pg.id===id);
+  const box = document.querySelector(`.thumb-box[data-id="${id}"]`);
+  if (!p || !box) return;
+  box.querySelector('img').src = p.editedCanvas.toDataURL();
+  box.classList.add('edited');
+}
+
+/* ==================== EDITOR ==================== */
+let cropDrag = null;
+function currentPage(){ return state.pages.find(pg=>pg.id===state.editingId); }
+
+async function openEditor(id){
+  state.editingId = id;
+  const p = state.pages.find(pg=>pg.id===id);
+  if (!p) return;
+
+  toast('Cargando página...');
+  const fullCanvas = await getFullPageCanvas(p.pageNumber, EDIT_SCALE);
+  state.editingSourceCanvas = fullCanvas;
+
+  const canvas = $('editorCanvas');
+  const ctx = canvas.getContext('2d');
+  const maxW = Math.min(640, window.innerWidth*0.55);
+  const maxH = Math.min(500, window.innerHeight*0.62);
+  const scale = Math.min(maxW/fullCanvas.width, maxH/fullCanvas.height, 1);
+
+  canvas.width = Math.round(fullCanvas.width*scale);
+  canvas.height = Math.round(fullCanvas.height*scale);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(fullCanvas, 0,0, canvas.width, canvas.height);
+
+  if (p.editState){
+    const st = p.editState;
+    setZoom(Math.round(st.zoom*100)); setRotation(st.rotation);
+    $('fillEnabled').checked = st.fillEnabled;
+    $('fillColor').value = st.fillColor;
+    $('fillOpacity').value = st.fillOpacity;
+    $('fillOpacityVal').textContent = Math.round(st.fillOpacity*100)+'%';
+    $('marginTB').value = st.marginTB; $('marginLR').value = st.marginLR;
+    state.aspectRatio = st.aspectRatio || 0;
+    activateAspectButtonForRatio(state.aspectRatio);
+    setCropBox({
+      left: st.xPct*canvas.width, top: st.yPct*canvas.height,
+      width: st.wPct*canvas.width, height: st.hPct*canvas.height
+    });
+  } else {
+    setZoom(100); setRotation(0);
+    $('fillEnabled').checked = false; $('fillColor').value = '#ffffff';
+    $('fillOpacity').value = 1; $('fillOpacityVal').textContent = '100%';
+    $('marginTB').value = 8; $('marginLR').value = 8;
+    state.aspectRatio = 0; activateAspectButtonForRatio(0);
+    setCropBox(defaultCropRect(canvas));
+  }
+
+  positionTicks();
+  $('editorOverlay').classList.add('show');
+}
+
+function defaultCropRect(canvas){
+  const w = canvas.width*0.55, h = canvas.height*0.55;
+  return { left:(canvas.width-w)/2, top:(canvas.height-h)/2, width:w, height:h };
+}
+
+function setCropBox(rect){
+  const box = $('cropBox');
+  box.style.left=rect.left+'px'; box.style.top=rect.top+'px';
+  box.style.width=rect.width+'px'; box.style.height=rect.height+'px';
+  updateMasks(rect); updateDimInputs(); renderCropPreview();
+}
+function getCropRect(){
+  const box = $('cropBox');
+  return { left:parseFloat(box.style.left), top:parseFloat(box.style.top),
+           width:parseFloat(box.style.width), height:parseFloat(box.style.height) };
+}
+function updateMasks(rect){
+  const canvas = $('editorCanvas');
+  $('maskTop').style.cssText    = `left:0px;top:0px;width:${canvas.width}px;height:${rect.top}px;`;
+  $('maskBottom').style.cssText = `left:0px;top:${rect.top+rect.height}px;width:${canvas.width}px;height:${canvas.height-(rect.top+rect.height)}px;`;
+  $('maskLeft').style.cssText   = `left:0px;top:${rect.top}px;width:${rect.left}px;height:${rect.height}px;`;
+  $('maskRight').style.cssText  = `left:${rect.left+rect.width}px;top:${rect.top}px;width:${canvas.width-(rect.left+rect.width)}px;height:${rect.height}px;`;
+}
+
+function renderCropPreview(){
+  const canvas = $('editorCanvas'); const rect = getCropRect(); const prev = $('cropPreview');
+  const src = state.editingSourceCanvas; if (!src) return;
+  prev.width = Math.max(1, Math.round(rect.width));
+  prev.height = Math.max(1, Math.round(rect.height));
+  const pctx = prev.getContext('2d');
+
+  const scaleX = src.width/canvas.width, scaleY = src.height/canvas.height;
+  const cropX = rect.left*scaleX, cropY = rect.top*scaleY;
+  const cropW = rect.width*scaleX, cropH = rect.height*scaleY;
+
+  const zoom = parseFloat($('zoomRange').value)/100;
+  const rotationDeg = parseFloat($('rotRange').value);
+
+  pctx.clearRect(0,0,prev.width,prev.height);
+  pctx.save();
+  if (rotationDeg!==0 || zoom!==1){
+    pctx.translate(prev.width/2, prev.height/2);
+    if (rotationDeg!==0) pctx.rotate(rotationDeg*Math.PI/180);
+    if (zoom!==1) pctx.scale(zoom, zoom);
+    pctx.translate(-prev.width/2, -prev.height/2);
+  }
+  pctx.drawImage(src, cropX, cropY, cropW, cropH, 0,0, prev.width, prev.height);
+  pctx.restore();
+
+  if ($('fillEnabled').checked){
+    drawMarginFill(pctx, prev.width, prev.height, $('fillColor').value,
+      parseFloat($('fillOpacity').value), parseFloat($('marginTB').value)||0, parseFloat($('marginLR').value)||0);
+  }
+}
+
+function clampCropRect(rect, canvas){
+  rect.width = Math.max(20, Math.min(rect.width, canvas.width));
+  rect.height = Math.max(20, Math.min(rect.height, canvas.height));
+  rect.left = Math.max(0, Math.min(rect.left, canvas.width-rect.width));
+  rect.top = Math.max(0, Math.min(rect.top, canvas.height-rect.height));
+  return rect;
+}
+
+function initCropDragging(){
+  const box = $('cropBox'); const canvas = $('editorCanvas');
+  box.addEventListener('mousedown', e=>{
+    const handle = e.target.classList.contains('handle') ? [...e.target.classList].find(c=>c!=='handle') : null;
+    cropDrag = { mode: handle?'resize':'move', handle, startClientX:e.clientX, startClientY:e.clientY, startBox:{...getCropRect()} };
+    e.preventDefault(); e.stopPropagation();
+  });
+  document.addEventListener('mousemove', e=>{
+    if (!cropDrag) return;
+    const dx=e.clientX-cropDrag.startClientX, dy=e.clientY-cropDrag.startClientY;
+    let rect;
+    if (cropDrag.mode==='move'){
+      rect={...cropDrag.startBox}; rect.left+=dx; rect.top+=dy; rect=clampCropRect(rect, canvas);
+    } else if (state.aspectRatio>0){
+      rect = resizeRectLocked(cropDrag.startBox, cropDrag.handle, dx, dy, canvas, state.aspectRatio);
+    } else {
+      rect = resizeRectFree(cropDrag.startBox, cropDrag.handle, dx, dy); rect=clampCropRect(rect, canvas);
+    }
+    setCropBox(rect);
+  });
+  document.addEventListener('mouseup', ()=> cropDrag=null);
+}
+
+function resizeRectFree(start, handle, dx, dy){
+  let {left,top,width,height}=start;
+  if (handle.includes('e')) width = start.width+dx;
+  if (handle.includes('s')) height = start.height+dy;
+  if (handle.includes('w')) { width = start.width-dx; left = start.left+dx; }
+  if (handle.includes('n')) { height = start.height-dy; top = start.top+dy; }
+  width=Math.max(20,width); height=Math.max(20,height);
+  return {left,top,width,height};
+}
+
+function resizeRectLocked(start, handle, dx, dy, canvas, ratio){
+  const left0=start.left, top0=start.top, w0=start.width, h0=start.height;
+  const right0=left0+w0, bottom0=top0+h0;
+  let anchorX, anchorXType;
+  if (handle.includes('w')) { anchorX=right0; anchorXType='right'; }
+  else if (handle.includes('e')) { anchorX=left0; anchorXType='left'; }
+  else { anchorX=left0+w0/2; anchorXType='center'; }
+  let anchorY, anchorYType;
+  if (handle.includes('n')) { anchorY=bottom0; anchorYType='bottom'; }
+  else if (handle.includes('s')) { anchorY=top0; anchorYType='top'; }
+  else { anchorY=top0+h0/2; anchorYType='center'; }
+  let desiredWidth;
+  if (handle.includes('e')) desiredWidth=w0+dx;
+  else if (handle.includes('w')) desiredWidth=w0-dx;
+  else { const dh = handle==='s'? h0+dy : h0-dy; desiredWidth = dh/ratio; }
+  desiredWidth=Math.max(20,desiredWidth);
+  return fitLockedRect(anchorX,anchorXType,anchorY,anchorYType,desiredWidth,ratio,canvas);
+}
+
+function fitLockedRect(anchorX,anchorXType,anchorY,anchorYType,desiredWidth,ratio,canvas){
+  let maxWidthX;
+  if (anchorXType==='right') maxWidthX=anchorX;
+  else if (anchorXType==='left') maxWidthX=canvas.width-anchorX;
+  else maxWidthX=2*Math.min(anchorX, canvas.width-anchorX);
+  let maxHeightY;
+  if (anchorYType==='bottom') maxHeightY=anchorY;
+  else if (anchorYType==='top') maxHeightY=canvas.height-anchorY;
+  else maxHeightY=2*Math.min(anchorY, canvas.height-anchorY);
+  const maxWidthFromY = maxHeightY/ratio;
+  const finalWidth = Math.max(20, Math.min(desiredWidth, maxWidthX, maxWidthFromY));
+  const finalHeight = finalWidth*ratio;
+  let left, top;
+  if (anchorXType==='right') left=anchorX-finalWidth; else if (anchorXType==='left') left=anchorX; else left=anchorX-finalWidth/2;
+  if (anchorYType==='bottom') top=anchorY-finalHeight; else if (anchorYType==='top') top=anchorY; else top=anchorY-finalHeight/2;
+  return {left,top,width:finalWidth,height:finalHeight};
+}
+
+function updateDimInputs(){
+  const rect=getCropRect(); const unit=$('dimUnit').value;
+  $('dimWidth').value=pxTo(unit,rect.width); $('dimHeight').value=pxTo(unit,rect.height);
+}
+function pxTo(unit,px){ if(unit==='mm') return Math.round(px*25.4/96); if(unit==='cm') return Math.round(px*2.54/96*10)/10; return Math.round(px); }
+function toPx(unit,val){ if(unit==='mm') return val*96/25.4; if(unit==='cm') return val*96/2.54; return val; }
+
+function applyDimInputs(){
+  const canvas=$('editorCanvas'); const unit=$('dimUnit').value;
+  const w=parseFloat($('dimWidth').value), h=parseFloat($('dimHeight').value);
+  if (!w || !h) return;
+  const rect=getCropRect(); const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
+  const pxW=toPx(unit,w);
+  let finalRect;
+  if (state.aspectRatio>0) finalRect = fitLockedRect(cx,'center',cy,'center',pxW,state.aspectRatio,canvas);
+  else { const pxH=toPx(unit,h); finalRect = clampCropRect({left:cx-pxW/2, top:cy-pxH/2, width:pxW, height:pxH}, canvas); }
+  setCropBox(finalRect);
+}
+
+/* --- proporciones --- */
+function bindAspectButton(btn){
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.aspect-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    state.aspectRatio = parseFloat(btn.dataset.ratio);
+    if (state.aspectRatio>0){
+      const canvas=$('editorCanvas'); const rect=getCropRect();
+      const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
+      setCropBox(fitLockedRect(cx,'center',cy,'center',rect.width,state.aspectRatio,canvas));
+    }
+  });
+}
+function initAspectButtons(){
+  document.querySelectorAll('.aspect-btn').forEach(bindAspectButton);
+  $('btnSaveCustomRatio').addEventListener('click', ()=>{
+    const rect=getCropRect(); const ratio=rect.height/rect.width;
+    let btn=document.getElementById('customAspectBtn');
+    if (!btn){ btn=document.createElement('button'); btn.id='customAspectBtn'; btn.className='aspect-btn custom'; bindAspectButton(btn); $('aspectGrid').appendChild(btn); }
+    btn.dataset.ratio=ratio; btn.textContent='⭐ '+ratio.toFixed(2);
+    document.querySelectorAll('.aspect-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); state.aspectRatio=ratio;
+    toast('💾 Proporción guardada para todas las páginas');
+  });
+}
+function activateAspectButtonForRatio(ratio){
+  document.querySelectorAll('.aspect-btn').forEach(b=>b.classList.remove('active'));
+  if (ratio===0){ document.querySelector('.aspect-btn[data-ratio="0"]').classList.add('active'); return; }
+  const match=[...document.querySelectorAll('.aspect-btn')].find(b=>Math.abs(parseFloat(b.dataset.ratio)-ratio)<0.001);
+  if (match) match.classList.add('active'); else document.querySelector('.aspect-btn[data-ratio="0"]').classList.add('active');
+}
+
+/* --- zoom / rotación con stepper y tick --- */
+function setZoom(v){
+  v = Math.max(50, Math.min(300, Math.round(v/2)*2));
+  $('zoomRange').value=v; $('zoomInput').value=v; renderCropPreview();
+}
+function setRotation(v){
+  v = Math.max(-180, Math.min(180, Math.round(v)));
+  $('rotRange').value=v; $('rotInput').value=v; renderCropPreview();
+}
+function positionTicks(){
+  const zr=$('zoomRange'), rr=$('rotRange');
+  const zPct = (100-zr.min)/(zr.max-zr.min)*100;
+  const rPct = (0-rr.min)/(rr.max-rr.min)*100;
+  $('zoomTick').style.left = zPct+'%';
+  $('rotTick').style.left = rPct+'%';
+}
+
+function initZoomRotationControls(){
+  $('zoomRange').addEventListener('input', e=> setZoom(parseFloat(e.target.value)));
+  $('zoomInput').addEventListener('change', e=> setZoom(parseFloat(e.target.value)||100));
+  $('zoomUp').addEventListener('click', ()=> setZoom(parseFloat($('zoomInput').value)+2));
+  $('zoomDown').addEventListener('click', ()=> setZoom(parseFloat($('zoomInput').value)-2));
+  $('zoomTick').addEventListener('click', ()=> setZoom(100));
+
+  $('rotRange').addEventListener('input', e=> setRotation(parseFloat(e.target.value)));
+  $('rotInput').addEventListener('change', e=> setRotation(parseFloat(e.target.value)||0));
+  $('rotUp').addEventListener('click', ()=> setRotation(parseFloat($('rotInput').value)+1));
+  $('rotDown').addEventListener('click', ()=> setRotation(parseFloat($('rotInput').value)-1));
+  $('rotTick').addEventListener('click', ()=> setRotation(0));
+
+  window.addEventListener('resize', positionTicks);
+}
+
+/* --- controles generales --- */
+function initEditorControls(){
+  $('fillOpacity').addEventListener('input', e=>{ $('fillOpacityVal').textContent=Math.round(e.target.value*100)+'%'; renderCropPreview(); });
+  $('fillColor').addEventListener('input', renderCropPreview);
+  $('fillEnabled').addEventListener('change', renderCropPreview);
+  $('marginTB').addEventListener('input', renderCropPreview);
+  $('marginLR').addEventListener('input', renderCropPreview);
+  $('dimUnit').addEventListener('change', updateDimInputs);
+  $('btnApplyDim').addEventListener('click', applyDimInputs);
+
+  $('btnResetEdit').addEventListener('click', ()=>{
+    setZoom(100); setRotation(0);
+    $('fillEnabled').checked=false; $('fillColor').value='#ffffff';
+    $('fillOpacity').value=1; $('fillOpacityVal').textContent='100%';
+    state.aspectRatio=0; activateAspectButtonForRatio(0);
+    setCropBox(defaultCropRect($('editorCanvas')));
+  });
+
+  $('btnCloseEditor').addEventListener('click', ()=>{ if(state.editingId) saveEditedPage(); });
+  $('btnSaveEdit').addEventListener('click', saveEditedPage);
+  $('btnApplyAll').addEventListener('click', ()=> applyToScope('all'));
+  $('btnApplyOdd').addEventListener('click', ()=> applyToScope('odd'));
+  $('btnApplyEven').addEventListener('click', ()=> applyToScope('even'));
+
+  $('modalBox').addEventListener('click', e=> e.stopPropagation());
+  $('editorOverlay').addEventListener('click', ()=>{ if(state.editingId) saveEditedPage(); });
+  document.addEventListener('keydown', e=>{
+    if (e.key==='Escape' && $('editorOverlay').classList.contains('show') && state.editingId) saveEditedPage();
+  });
+}
+
+function closeEditorSilent(){
+  $('editorOverlay').classList.remove('show');
+  state.editingId = null; state.editingSourceCanvas = null;
+}
+
+/* --- guardado --- */
+function buildEditedCanvas(sourceCanvas, xPct, yPct, wPct, hPct, zoom, rotationDeg, fillEnabled, fillColor, fillOpacity, marginTB, marginLR){
+  const cropX = xPct*sourceCanvas.width, cropY = yPct*sourceCanvas.height;
+  const cropW = wPct*sourceCanvas.width, cropH = hPct*sourceCanvas.height;
+  const out = document.createElement('canvas');
+  out.width = Math.max(1, Math.round(cropW)); out.height = Math.max(1, Math.round(cropH));
+  const octx = out.getContext('2d');
+  octx.save();
+  if (rotationDeg!==0 || zoom!==1){
+    octx.translate(out.width/2, out.height/2);
+    if (rotationDeg!==0) octx.rotate(rotationDeg*Math.PI/180);
+    if (zoom!==1) octx.scale(zoom, zoom);
+    octx.translate(-out.width/2, -out.height/2);
+  }
+  octx.drawImage(sourceCanvas, cropX, cropY, cropW, cropH, 0,0, out.width, out.height);
+  octx.restore();
+  if (fillEnabled) drawMarginFill(octx, out.width, out.height, fillColor, fillOpacity, marginTB, marginLR);
+  return out;
+}
+
+function readCurrentParams(){
+  const canvas=$('editorCanvas'); const rect=getCropRect();
+  return {
+    xPct: rect.left/canvas.width, yPct: rect.top/canvas.height,
+    wPct: rect.width/canvas.width, hPct: rect.height/canvas.height,
+    zoom: parseFloat($('zoomRange').value)/100,
+    rotationDeg: parseFloat($('rotRange').value),
+    fillEnabled: $('fillEnabled').checked, fillColor: $('fillColor').value,
+    fillOpacity: parseFloat($('fillOpacity').value),
+    marginTB: parseFloat($('marginTB').value)||0, marginLR: parseFloat($('marginLR').value)||0,
+    aspectRatio: state.aspectRatio
+  };
+}
+
+function saveEditedPage(){
+  const p = currentPage(); if (!p || !state.editingSourceCanvas) return;
+  const params = readCurrentParams();
+  p.editedCanvas = buildEditedCanvas(state.editingSourceCanvas, params.xPct, params.yPct, params.wPct, params.hPct,
+    params.zoom, params.rotationDeg, params.fillEnabled, params.fillColor, params.fillOpacity, params.marginTB, params.marginLR);
+  p.editState = params;
+  updateThumbImage(p.id);
+  closeEditorSilent();
+  toast('✓ Página guardada');
+}
+
+async function applyToScope(scope){
+  const current = currentPage(); if (!current || !state.editingSourceCanvas) return;
+  const params = readCurrentParams();
+
+  const targets = state.pages.filter(pg=>{
+    if (scope==='all') return true;
+    if (scope==='odd') return pg.index % 2 === 1;
+    return pg.index % 2 === 0;
+  });
+
+  toast(`Aplicando a ${targets.length} página(s)...`);
+  for (const pg of targets){
+    let src;
+    if (pg.id === current.id) src = state.editingSourceCanvas;
+    else src = await getFullPageCanvas(pg.pageNumber, EDIT_SCALE);
+    pg.editedCanvas = buildEditedCanvas(src, params.xPct, params.yPct, params.wPct, params.hPct,
+      params.zoom, params.rotationDeg, params.fillEnabled, params.fillColor, params.fillOpacity, params.marginTB, params.marginLR);
+    pg.editState = params;
+  }
+  renderThumbs();
+  closeEditorSilent();
+  toast(`✓ Recorte aplicado a ${targets.length} página(s)`);
+}
+
+function drawMarginFill(ctx, w, h, color, opacity, tbPercent, lrPercent){
+  const tb=Math.max(0,Math.min(45,tbPercent))/100, lr=Math.max(0,Math.min(45,lrPercent))/100;
+  const r=parseInt(color.substr(1,2),16), g=parseInt(color.substr(3,2),16), b=parseInt(color.substr(5,2),16);
+  ctx.fillStyle = `rgba(${r},${g},${b},${opacity})`;
+  const topPx=h*tb, bottomPx=h*tb, leftPx=w*lr, rightPx=w*lr;
+  if (topPx>0) ctx.fillRect(0,0,w,topPx);
+  if (bottomPx>0) ctx.fillRect(0,h-bottomPx,w,bottomPx);
+  if (leftPx>0) ctx.fillRect(0,0,leftPx,h);
+  if (rightPx>0) ctx.fillRect(w-rightPx,0,rightPx,h);
+}
+
+/* ==================== EXPORTAR ==================== */
+function initExport(){
+  $('btnGoExport').addEventListener('click', ()=>{ hide('stepThumbs'); show('stepExport'); });
+  $('btnBackThumbs').addEventListener('click', ()=>{ hide('stepExport'); show('stepThumbs'); });
+  $('btnNewPdf').addEventListener('click', resetToUpload);
+
+  document.querySelectorAll('#stepExport .option-card').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      document.querySelectorAll('#stepExport .option-card').forEach(x=>x.classList.remove('selected'));
+      c.classList.add('selected');
+      hide('pageRangeOptions'); hide('zipOptions');
+      if (c.dataset.format==='pdf' || c.dataset.format==='jpg') show('pageRangeOptions');
+      if (c.dataset.format==='zip') show('zipOptions');
+    });
+  });
+  show('pageRangeOptions'); // formato inicial = pdf
+
+  $('btnExport').addEventListener('click', runExport);
+}
+
+function parsePageList(str){
+  str=(str||'').trim(); if(!str) return null;
+  const parts=str.split(',').map(s=>s.trim()).filter(Boolean);
+  const list=[];
+  parts.forEach(part=>{
+    const m=part.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (m){
+      let a=parseInt(m[1]), b=parseInt(m[2]);
+      if (a<=b) for(let n=a;n<=b;n++) list.push(n);
+      else for(let n=a;n>=b;n--) list.push(n);
+    } else {
+      const n=parseInt(part); if(!isNaN(n)) list.push(n);
+    }
+  });
+  return list.length? list : null;
+}
+
+function pagesForList(list){
+  const out=[];
+  list.forEach(pn=> state.pages.filter(p=>p.pageNumber===pn).forEach(p=>out.push(p)) );
+  return out;
+}
+
+async function resolveFinalCanvas(p, resolution){
+  if (p.editedCanvas) return scaledCanvas(p.editedCanvas, resolution);
+  const full = await getFullPageCanvas(p.pageNumber, EDIT_SCALE*resolution);
+  return cropDefaultHalf(full, p.half);
+}
+
+function scaledCanvas(source, factor){
+  if (factor===1) return source;
+  const c=document.createElement('canvas');
+  c.width=Math.round(source.width*factor); c.height=Math.round(source.height*factor);
+  const ctx=c.getContext('2d'); ctx.scale(factor,factor); ctx.drawImage(source,0,0);
+  return c;
+}
+
+async function runExport(){
+  const format = document.querySelector('#stepExport .option-card.selected').dataset.format;
+  const res = parseFloat(document.querySelector('input[name="res"]:checked').value);
+
+  let pagesToExport = state.pages;
+
+  if (format==='pdf' || format==='jpg'){
+    const list = parsePageList($('pageRangeInput').value);
+    if (list) pagesToExport = pagesForList(list);
+  }
+  if (format==='zip'){
+    const scope = document.querySelector('input[name="zipScope"]:checked').value;
+    if (scope==='odd') pagesToExport = state.pages.filter(p=>p.index%2===1);
+    else if (scope==='even') pagesToExport = state.pages.filter(p=>p.index%2===0);
+  }
+
+  if (pagesToExport.length===0){ alert('No hay páginas que coincidan con el filtro.'); return; }
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:6000;';
+  overlay.innerHTML=`<div style="background:#fff;padding:26px;border-radius:12px;min-width:280px;text-align:center;">
+    <h3>🚀 Exportando...</h3>
+    <div class="progress-bar" style="margin:14px 0;"><div class="progress-fill" id="expFill"></div></div>
+    <p id="expText">Preparando...</p></div>`;
+  document.body.appendChild(overlay);
+
+  try{
+    if (format==='pdf') await exportPdf(res, overlay, pagesToExport);
+    else if (format==='zip') await exportZip(res, overlay, pagesToExport);
+    else { // jpg
+      if (pagesToExport.length>2) await exportZip(res, overlay, pagesToExport);
+      else await exportIndividualJpgs(res, overlay, pagesToExport);
+    }
+    overlay.querySelector('div').innerHTML=`<h3>✅ Listo</h3><button class="btn" id="closeExp">Cerrar</button>`;
+    overlay.querySelector('#closeExp').addEventListener('click', ()=>overlay.remove());
+  } catch(err){
+    console.error(err);
+    overlay.querySelector('div').innerHTML=`<h3>❌ Error</h3><p>${err.message}</p><button class="btn" id="closeExp">Cerrar</button>`;
+    overlay.querySelector('#closeExp').addEventListener('click', ()=>overlay.remove());
+  }
+}
+
+async function exportPdf(res, overlay, pages){
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF();
+  const fill=overlay.querySelector('#expFill'), text=overlay.querySelector('#expText');
+
+  for (let i=0;i<pages.length;i++){
+    const p = pages[i];
+    fill.style.width=((i/pages.length)*100)+'%';
+    text.textContent=`Página ${i+1}/${pages.length} (orig. ${p.pageNumber})`;
+
+    const finalCanvas = await resolveFinalCanvas(p, res);
+    const img = finalCanvas.toDataURL('image/jpeg', 0.95);
+
+    if (i>0) pdf.addPage();
+    const pw=pdf.internal.pageSize.getWidth(), ph=pdf.internal.pageSize.getHeight();
+    const ar=finalCanvas.width/finalCanvas.height, par=pw/ph;
+    let iw,ih;
+    if (ar>par){ iw=pw; ih=pw/ar; } else { ih=ph; iw=ph*ar; }
+    pdf.addImage(img,'JPEG',(pw-iw)/2,(ph-ih)/2,iw,ih);
+    await new Promise(r=>setTimeout(r,0));
+  }
+  pdf.save(`documento-${res}x.pdf`);
+}
+
+async function exportIndividualJpgs(res, overlay, pages){
+  const fill=overlay.querySelector('#expFill'), text=overlay.querySelector('#expText');
+  for (let i=0;i<pages.length;i++){
+    const p=pages[i];
+    fill.style.width=((i/pages.length)*100)+'%';
+    text.textContent=`Imagen ${i+1}/${pages.length}`;
+    const finalCanvas = await resolveFinalCanvas(p, res);
+    const img = finalCanvas.toDataURL('image/jpeg', 0.95);
+    const a=document.createElement('a'); a.href=img;
+    a.download=`pagina-${p.pageNumber}-${p.half}-${res}x.jpg`; a.click();
+    await new Promise(r=>setTimeout(r,150));
+  }
+}
+
+async function exportZip(res, overlay, pages){
+  const fill=overlay.querySelector('#expFill'), text=overlay.querySelector('#expText');
+  const zip = new JSZip();
+  for (let i=0;i<pages.length;i++){
+    const p=pages[i];
+    fill.style.width=((i/pages.length)*100)+'%';
+    text.textContent=`Comprimiendo ${i+1}/${pages.length}`;
+    const finalCanvas = await resolveFinalCanvas(p, res);
+    const dataURL = finalCanvas.toDataURL('image/jpeg', 0.92);
+    const base64 = dataURL.split(',')[1];
+    zip.file(`pagina-${String(p.index).padStart(4,'0')}-orig${p.pageNumber}-${p.half}.jpg`, base64, {base64:true});
+    if (i%20===0) await new Promise(r=>setTimeout(r,0));
+  }
+  text.textContent = 'Generando archivo ZIP...';
+  const blob = await zip.generateAsync({type:'blob'});
+  const url = URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=`imagenes-${res}x.zip`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+
+/* ==================== INIT ==================== */
+document.addEventListener('DOMContentLoaded', ()=>{
+  initUpload();
+  initExport();
+  initCropDragging();
+  initAspectButtons();
+  initEditorControls();
+  initZoomRotationControls();
+  $('thumbSize').addEventListener('input', refreshThumbSizes);
+});
+</script>
+</body>
+</html>
