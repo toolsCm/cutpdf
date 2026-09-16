@@ -225,11 +225,11 @@ body {
           <label>🔍 Zoom</label>
           <div class="slider-row">
             <div class="slider-wrap">
-              <input type="range" id="zoomRange" min="50" max="300" value="100" step="2">
+              <input type="range" id="zoomRange" min="50" max="300" value="100" step="1">
               <div class="tick-mark" id="zoomTick" title="Restablecer a 100%"></div>
             </div>
             <div class="stepper">
-              <input type="number" id="zoomInput" min="50" max="300" step="2" value="100">
+              <input type="number" id="zoomInput" min="50" max="300" step="1" value="100">
               <span class="unit">%</span>
               <div class="arrows">
                 <button type="button" id="zoomUp">▲</button>
@@ -243,7 +243,7 @@ body {
           <label>🔄 Rotación</label>
           <div class="slider-row">
             <div class="slider-wrap">
-              <input type="range" id="rotRange" min="-180" max="180" value="0" step="1">
+              <input type="range" id="rotRange" min="-180" max="180" value="0" step="0.5">
               <div class="tick-mark" id="rotTick" title="Restablecer a 0°"></div>
             </div>
             <div class="stepper">
@@ -767,11 +767,11 @@ function activateAspectButtonForRatio(ratio){
 
 /* --- zoom / rotación con stepper y tick --- */
 function setZoom(v){
-  v = Math.max(50, Math.min(300, Math.round(v/2)*2));
+  v = Math.max(50, Math.min(300, Math.round(v)));
   $('zoomRange').value=v; $('zoomInput').value=v; renderCropPreview();
 }
 function setRotation(v){
-  v = Math.max(-180, Math.min(180, Math.round(v)));
+  v = Math.max(-180, Math.min(180, Math.round(v*2)/2));
   $('rotRange').value=v; $('rotInput').value=v; renderCropPreview();
 }
 function positionTicks(){
@@ -785,14 +785,14 @@ function positionTicks(){
 function initZoomRotationControls(){
   $('zoomRange').addEventListener('input', e=> setZoom(parseFloat(e.target.value)));
   $('zoomInput').addEventListener('change', e=> setZoom(parseFloat(e.target.value)||100));
-  $('zoomUp').addEventListener('click', ()=> setZoom(parseFloat($('zoomInput').value)+2));
-  $('zoomDown').addEventListener('click', ()=> setZoom(parseFloat($('zoomInput').value)-2));
+  $('zoomUp').addEventListener('click', ()=> setZoom(parseFloat($('zoomInput').value)+1));
+  $('zoomDown').addEventListener('click', ()=> setZoom(parseFloat($('zoomInput').value)-1));
   $('zoomTick').addEventListener('click', ()=> setZoom(100));
 
   $('rotRange').addEventListener('input', e=> setRotation(parseFloat(e.target.value)));
   $('rotInput').addEventListener('change', e=> setRotation(parseFloat(e.target.value)||0));
-  $('rotUp').addEventListener('click', ()=> setRotation(parseFloat($('rotInput').value)+1));
-  $('rotDown').addEventListener('click', ()=> setRotation(parseFloat($('rotInput').value)-1));
+  $('rotUp').addEventListener('click', ()=> setRotation(parseFloat($('rotInput').value)+0.5));
+  $('rotDown').addEventListener('click', ()=> setRotation(parseFloat($('rotInput').value)-0.5));
   $('rotTick').addEventListener('click', ()=> setRotation(0));
 
   window.addEventListener('resize', positionTicks);
@@ -951,9 +951,12 @@ function parsePageList(str){
   return list.length? list : null;
 }
 
-function pagesForList(list){
-  const out=[];
-  list.forEach(pn=> state.pages.filter(p=>p.pageNumber===pn).forEach(p=>out.push(p)) );
+function pagesForIndexList(list){
+  const out = [];
+  list.forEach(idx=>{
+    const found = state.pages.find(p=>p.index===idx);
+    if (found) out.push(found);
+  });
   return out;
 }
 
@@ -979,7 +982,7 @@ async function runExport(){
 
   if (format==='pdf' || format==='jpg'){
     const list = parsePageList($('pageRangeInput').value);
-    if (list) pagesToExport = pagesForList(list);
+    if (list) pagesToExport = pagesForIndexList(list);
   }
   if (format==='zip'){
     const scope = document.querySelector('input[name="zipScope"]:checked').value;
@@ -1021,7 +1024,7 @@ async function exportPdf(res, overlay, pages){
   for (let i=0;i<pages.length;i++){
     const p = pages[i];
     fill.style.width=((i/pages.length)*100)+'%';
-    text.textContent=`Página ${i+1}/${pages.length} (orig. ${p.pageNumber})`;
+    text.textContent=`Miniatura ${p.index} (${i+1}/${pages.length})`;
 
     const finalCanvas = await resolveFinalCanvas(p, res);
     const img = finalCanvas.toDataURL('image/jpeg', 0.95);
