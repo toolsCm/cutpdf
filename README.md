@@ -5,8 +5,6 @@
 
 🔗 **[Abrir CutPDF](https://toolscm.github.io/cutpdf/)**
 
-![Cómo funciona CutPDF: cargar, editar y exportar](assets/cutpdf-guia.svg)
-
 ## ¿Cómo funciona?
 
 1. **Carga tu PDF.** Elige el archivo y divide sus páginas de forma horizontal o vertical.
