@@ -1,1089 +1,381 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Editor de PDF</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CutPDF — Cortar y editar PDF</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(135deg,#667eea,#764ba2);
-  min-height:100vh;
+:root{font-family:Inter,'Segoe UI',Arial,sans-serif;color:#1c2440;background:#eef0f8;font-synthesis:none}*{box-sizing:border-box}body{margin:0;background:linear-gradient(140deg,#e9edff,#f5eefb);min-height:100vh}button,input,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}.shell{max-width:1760px;margin:auto;padding:25px 17px 60px}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px}.brand{font-size:29px;font-weight:850;letter-spacing:-1px;color:#5c55c9}.brand span{font-weight:400;color:#7d8199}.tag{color:#626b85;font-size:13px}.panel{background:white;border:1px solid #e4e8f3;border-radius:19px;padding:22px;box-shadow:0 12px 32px #25245b14;margin-bottom:17px}.hidden{display:none!important}.intro{text-align:center;padding:24px 10px}.intro h1{font-size:clamp(24px,4vw,37px);margin:6px 0 8px}.muted{color:#737d97;font-size:14px}.drop{border:2px dashed #9998eb;background:#f7f7ff;padding:45px 15px;border-radius:15px;text-align:center;cursor:pointer;transition:.2s}.drop.over{background:#e7e8ff;border-color:#534ace}.drop strong{display:block;font-size:18px;margin-bottom:7px}.btn{border:0;border-radius:10px;padding:11px 17px;background:#6458d5;color:white;font-weight:700;box-shadow:0 4px 12px #6458d525}.btn:hover:not(:disabled){filter:brightness(1.07)}.btn.secondary{background:#edf0f9;color:#394061;box-shadow:none}.btn.danger{background:#fff0f1;color:#b7374c;box-shadow:none}.btn.small{padding:7px 10px;font-size:12px}.actions,.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.toolbar{justify-content:space-between}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.choice{background:#f8f9fe;border:2px solid #e6e8f4;border-radius:12px;padding:20px;text-align:left;cursor:pointer}.choice.active{border-color:#6658d7;background:#f0efff}.choice h3{margin:0 0 5px}.choice p{margin:0;font-size:13px;color:#707991}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--thumb,178px),1fr));gap:13px;margin-top:19px}.thumb{min-width:0;padding:10px;border-radius:12px;border:1px solid #dfe4f0;background:#fff;cursor:pointer;content-visibility:auto;contain-intrinsic-size:245px;position:relative}.thumb:hover{border-color:#6d61d9}.thumb.edited{border:2px solid #37a67a}.thumb .image{height:200px;background:#f3f4f9;border-radius:8px;display:grid;place-items:center;overflow:hidden}.thumb img{max-width:100%;max-height:100%;object-fit:contain}.thumb .sub{text-align:center;font-size:12px;color:#69758f;margin-top:7px}.thumb .num{text-align:center;font-weight:800;font-size:15px;margin-top:4px}.thumb .mark{position:absolute;right:13px;top:13px;background:#dbf7e8;color:#178558;font-size:10px;padding:3px 6px;border-radius:6px}.slider{accent-color:#6256d4}input[type=number],input[type=text],select{border:1px solid #d5daea;padding:9px;border-radius:9px;min-width:0;width:100%;background:white}label{font-size:12px;font-weight:700;color:#505c78;display:block;margin-bottom:5px}.field{margin-bottom:11px}.formrow{display:grid;grid-template-columns:1fr 1fr;gap:9px}.modal{position:fixed;inset:0;background:#151529c9;z-index:10;display:grid;place-items:center;padding:13px}.dialog{width:min(1100px,100%);max-height:96vh;overflow:auto;background:white;border-radius:18px;padding:20px}.editlayout{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:20px}.stage{background:#eff1f9;border-radius:13px;min-height:320px;display:flex;justify-content:center;align-items:center;padding:16px;overflow:hidden}.stage canvas{display:block;max-width:100%;height:auto;touch-action:none;cursor:crosshair;box-shadow:0 6px 22px #20254936}.side{background:#f8f9fd;border-radius:12px;padding:13px}.hint{font-size:12px;color:#777e97;margin-top:8px}.status{margin-top:12px;padding:10px;border-radius:10px;background:#f1f2ff;color:#4944ac;font-size:13px}.progress{height:8px;border-radius:9px;background:#e1e4f0;overflow:hidden}.progress>div{height:100%;width:0;background:#6357d7;transition:width .2s}.error{background:#fff1f1;color:#ab3043}.stat{font-weight:700;color:#4e49a9}.toolgroup{margin-bottom:12px;background:#fff;border:1px solid #e8ebf3;border-radius:11px;padding:11px;box-shadow:0 2px 9px #1f285708}.toolhead{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:12px;font-weight:750;color:#33415d;margin-bottom:8px}.toolhead strong{font-variant-numeric:tabular-nums;color:#6554c8}.toolcontrol{display:flex;align-items:center;gap:6px;min-width:0}.toolcontrol .slider{min-width:45px;width:100%;flex:1}.stepbtn{border:1px solid #dfe2ef;background:linear-gradient(#fff,#f4f5fa);border-radius:7px;color:#37415b;min-width:27px;min-height:31px;font-weight:750;padding:3px 6px;box-shadow:0 1px 3px #1e264313}.stepbtn:active{background:#e5e4fb}.toolcontrol input.precision{width:56px;flex:none;text-align:right;padding:6px 4px;font-size:12px;border-radius:6px}.unit{font-size:12px;color:#7c8294}.palette{display:flex;align-items:center;gap:7px}.palette input[type=color]{width:45px;height:34px;padding:2px;border-radius:8px;background:#fff;border:1px solid #d5daea;cursor:pointer;flex:none}.palette input[type=text]{width:87px;font-family:ui-monospace,monospace;font-size:12px}.eyedrop{font-size:11px;flex:1;white-space:nowrap}.swatches{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.swatches button{width:23px;height:23px;border-radius:6px;border:1px solid #aeb5c7;cursor:pointer;box-shadow:0 1px 3px #0002}.swatches button.active{outline:2px solid #6256d4;outline-offset:2px}.footer{text-align:center;font-size:12px;color:#77819a;margin-top:22px}@media(max-width:740px){.editlayout{grid-template-columns:1fr}.shell{padding:12px}.panel{padding:15px}.dialog{max-height:100vh}.stage{min-height:240px;padding:6px}.top{margin-bottom:12px}.thumb .image{height:150px}}
+
+/* Use viewport width for a denser, responsive thumbnail gallery. */
+#thumbStep{padding:clamp(12px,1.7vw,24px)}
+#thumbGrid{gap:clamp(7px,1vw,14px);grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--thumb,178px)),1fr))}
+#thumbGrid .thumb{padding:clamp(5px,.6vw,10px)}
+#thumbGrid .thumb .image{flex:1;min-height:0}
+#thumbGrid .thumb img{width:100%;height:auto}
+.export-cards{grid-template-columns:repeat(2,minmax(0,1fr));max-width:1100px;margin-inline:auto}
+.mobile-edit-bar{display:none}
+@media(min-width:1600px){.dialog{width:min(1460px,98vw)}.editlayout{grid-template-columns:minmax(0,1fr) 330px}}
+@media(max-width:740px){
+ .shell{width:100%;padding:8px 7px 24px}
+ #thumbStep{padding:12px 7px}
+ #thumbGrid{grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--thumb,178px)),1fr));gap:7px}
+ .thumb .num{font-size:19px}
+ .export-cards{gap:8px}
+ .modal{padding:0;align-items:stretch}
+ .dialog{width:100%;max-height:100dvh;height:100dvh;overflow-y:auto;border-radius:0;padding:10px 10px 155px}
+ .editlayout{grid-template-columns:1fr;gap:10px}
+ .stage{min-height:120px;padding:5px}
+ .side{padding:10px 8px 90px}
+ .side [data-mobile-tool]{display:none}
+ .side [data-mobile-tool].mobile-tool-active{display:block}
+ .mobile-edit-bar{position:fixed;display:flex;bottom:0;left:0;right:0;z-index:25;align-items:center;gap:5px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;background:#fff;box-shadow:0 -8px 35px #131b3030;padding:9px 9px calc(9px + env(safe-area-inset-bottom));scrollbar-width:thin}
+ .mobile-edit-bar button{flex:0 0 75px;min-height:65px;scroll-snap-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:0;border-radius:12px;background:#f4f4fc;color:#4f5873;font-size:11px;font-weight:800}
+ .mobile-edit-bar button span{font-size:27px;line-height:1}
+ .mobile-edit-bar button.active{background:#665bd7;color:white}
+ #editor .toolbar{gap:8px}
+ #editor .toolbar h2{font-size:20px}
+ #editor .toolbar .muted{font-size:11px}
 }
-.container { max-width:1200px; margin:0 auto; padding:20px; }
-.card { background:rgba(255,255,255,0.97); border-radius:16px; box-shadow:0 20px 40px rgba(0,0,0,0.15); padding:30px; }
-.page-title {
-  font-size:2.2em; background:linear-gradient(45deg,#667eea,#764ba2);
-  background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-  text-align:center; margin-bottom:10px;
+
+/* Cuadrícula de densidad controlada: no queda limitada a 1 o 2 columnas en móvil. */
+#thumbGrid.grid{display:grid;grid-template-columns:repeat(var(--thumb-columns,8), minmax(0,1fr));gap:clamp(3px,.65vw,10px);width:100%;align-items:start}
+#thumbGrid .thumb{min-width:0;padding:clamp(2px,.45vw,7px);gap:3px;overflow:hidden}
+#thumbGrid .thumb .image{width:100%;min-height:0;height:auto;aspect-ratio:auto;background:transparent}
+#thumbGrid .thumb img{width:100%;height:auto;max-width:100%;object-fit:contain}
+#thumbGrid .thumb .num{font-size:clamp(11px,1.2vw,19px)}
+#thumbGrid .thumb .sub{font-size:clamp(8px,.75vw,11px);overflow-wrap:anywhere}
+.thumb-zoom-icon{font-size:19px;font-weight:700;color:#6356bd;line-height:1}
+#thumbSize{width:clamp(110px,19vw,245px)}
+@media(max-width:740px){
+ #thumbGrid.grid{gap:3px}
+ #thumbGrid .thumb{padding:2px;border-radius:6px;gap:2px}
+ #thumbGrid .thumb .num{font-size:clamp(10px,2.9vw,16px);margin:1px 0}
+ #thumbGrid .thumb .sub{font-size:9px;line-height:1.15}
+ #thumbGrid .thumb .mark{display:none}
+ #thumbSize{width:min(39vw,180px)}
+ #thumbSizeText{font-size:11px}
+ #thumbStep .toolbar .actions{gap:6px}
 }
-.subtitle { text-align:center; color:#6c757d; margin-bottom:20px; }
-.hidden { display:none !important; }
+/* Un lienzo único con máscara y previsualización en vivo. */
+#editor .editlayout>div:first-child{min-width:0}
+#editor .stage{position:relative;min-height:350px}
+#editor #editCanvas{max-height:min(76vh,750px);width:auto;object-fit:contain}
+@media(max-width:740px){#editor .stage{min-height:0}#editor #editCanvas{max-height:100%;max-width:100%}}
 
-.upload-area { border:3px dashed #667eea; border-radius:14px; padding:60px 20px; text-align:center; background:#f5f7ff; cursor:pointer; transition:.2s; }
-.upload-area:hover { background:#eef1ff; }
-.upload-area.dragover { border-color:#28a745; background:#eafaf0; }
-
-.btn { background:linear-gradient(45deg,#667eea,#764ba2); color:#fff; border:none; padding:10px 22px; border-radius:20px; font-size:14px; cursor:pointer; margin:4px; transition:.2s; }
-.btn:hover { transform:translateY(-2px); box-shadow:0 8px 18px rgba(102,126,234,.35); }
-.btn-secondary { background:linear-gradient(45deg,#6c757d,#495057); }
-.btn-save { background:linear-gradient(45deg,#28a745,#1e7e34); }
-
-.option-card { background:#fff; border:2px solid #e9ecef; border-radius:12px; padding:20px; text-align:center; cursor:pointer; transition:.2s; }
-.option-card:hover { border-color:#a9b8ff; }
-.option-card.selected { border-color:#667eea; background:#f5f7ff; }
-
-.progress-bar { width:100%; height:6px; background:#e9ecef; border-radius:3px; overflow:hidden; margin:14px 0; }
-.progress-fill { height:100%; width:0%; background:linear-gradient(45deg,#667eea,#764ba2); transition:.2s; }
-
-.thumb-toolbar { display:flex; align-items:center; justify-content:center; gap:12px; margin:14px 0; flex-wrap:wrap; }
-.thumbs-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px,1fr)); gap:16px; padding:15px 0; }
-.thumb-box { background:#fff; border-radius:10px; padding:10px; box-shadow:0 4px 12px rgba(0,0,0,.1); cursor:pointer; transition:.2s; border:3px solid transparent; }
-.thumb-box:hover { transform:translateY(-4px); box-shadow:0 10px 22px rgba(0,0,0,.18); }
-.thumb-box.edited { border-color:#28a745; }
-.thumb-img-wrap { width:100%; display:flex; align-items:center; justify-content:center; background:#f1f2f6; border-radius:6px; overflow:hidden; }
-.thumb-img-wrap img { max-width:100%; max-height:100%; object-fit:contain; }
-.thumb-index { text-align:center; margin-top:8px; font-weight:800; color:#343a40; font-size:18px; }
-.thumb-sub { text-align:center; color:#adb5bd; font-size:10.5px; margin-top:1px; }
-
-.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.88); display:none; align-items:center; justify-content:center; z-index:1000; padding:16px; }
-.modal-overlay.show { display:flex; }
-.modal-box { background:#fff; border-radius:14px; padding:16px; max-width:96vw; max-height:96vh; overflow:auto; }
-.editor-flex { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
-
-.canvas-wrap { position:relative; background:#eee; border:2px solid #dee2e6; border-radius:8px; display:inline-block; line-height:0; overflow:hidden; }
-#editorCanvas { display:block; }
-.dark-mask { position:absolute; background:rgba(0,0,0,.55); pointer-events:none; }
-
-.crop-box { position:absolute; border:2px solid #007bff; cursor:move; overflow:hidden; }
-#cropPreview { position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:none; }
-.handle { position:absolute; width:12px; height:12px; background:#007bff; border:2px solid #fff; border-radius:50%; z-index:5; }
-.handle.nw{top:-7px;left:-7px;cursor:nw-resize;} .handle.n{top:-7px;left:50%;margin-left:-6px;cursor:n-resize;}
-.handle.ne{top:-7px;right:-7px;cursor:ne-resize;} .handle.e{top:50%;right:-7px;margin-top:-6px;cursor:e-resize;}
-.handle.se{bottom:-7px;right:-7px;cursor:se-resize;} .handle.s{bottom:-7px;left:50%;margin-left:-6px;cursor:s-resize;}
-.handle.sw{bottom:-7px;left:-7px;cursor:sw-resize;} .handle.w{top:50%;left:-7px;margin-top:-6px;cursor:w-resize;}
-
-/* ---- Panel compacto ---- */
-.panel { width:250px; flex-shrink:0; background:#f8f9fa; border-radius:10px; padding:12px; max-height:80vh; overflow-y:auto; font-size:12px; }
-.field-group { margin-bottom:12px; }
-.field-group label { display:block; font-weight:700; margin-bottom:4px; color:#495057; font-size:11.5px; }
-.field-group small { display:block; color:#adb5bd; font-size:10px; margin-top:2px; }
-.dim-row { display:grid; grid-template-columns:1fr 1fr 44px; gap:4px; }
-.dim-row input, .dim-row select { padding:4px; border:1px solid #ced4da; border-radius:5px; font-size:11px; text-align:center; }
-.aspect-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
-.aspect-btn { padding:5px; border:1px solid #ced4da; background:#fff; border-radius:5px; cursor:pointer; font-size:10.5px; }
-.aspect-btn.active, .aspect-btn:hover { background:#667eea; color:#fff; border-color:#667eea; }
-.aspect-btn.custom { background:#fff3e0; border-color:#ff9800; }
-.aspect-btn.custom.active { background:#ff9800; color:#fff; }
-.apply-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px; }
-.apply-grid .btn { padding:5px; font-size:9.5px; margin:0; }
-.btn.small { padding:5px; font-size:11px; width:100%; margin-top:5px; }
-
-/* ---- Slider + stepper numérico (zoom/rotación) ---- */
-.slider-row { display:flex; align-items:center; gap:6px; }
-.slider-wrap { position:relative; flex:1; height:20px; display:flex; align-items:center; }
-.slider-wrap input[type=range] { width:100%; }
-.tick-mark { position:absolute; top:1px; width:2px; height:14px; background:#868e96; transform:translateX(-50%); cursor:pointer; border-radius:1px; }
-.stepper {
-  background:#14181f; border-radius:9px; display:flex; align-items:center;
-  padding:3px 4px; gap:2px; flex-shrink:0;
-}
-.stepper input {
-  width:48px; background:transparent; border:none; color:#fff; text-align:center;
-  font-size:12px; font-weight:600; outline:none;
-}
-.stepper .unit { color:#9aa4b2; font-size:11px; }
-.stepper .arrows { display:flex; flex-direction:column; }
-.stepper .arrows button {
-  background:none; border:none; color:#9aa4b2; cursor:pointer; font-size:9px; line-height:8px; padding:0 2px;
-}
-.stepper .arrows button:hover { color:#fff; }
-
-.export-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:16px; margin:18px 0; }
-.export-sub { max-width:460px; margin:0 auto 18px; text-align:left; background:#f8f9fa; padding:14px; border-radius:10px; }
-.export-sub label { display:block; margin:5px 0; font-size:13px; }
-.export-sub input[type=text]{ width:100%; padding:8px; border:1px solid #ced4da; border-radius:6px; margin-top:5px; }
-
-.toast { position:fixed; top:20px; right:20px; background:#28a745; color:#fff; padding:13px 20px; border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,.3); z-index:5000; font-weight:600; transform:translateX(120%); transition:transform .3s; max-width:320px;}
-.toast.show { transform:translateX(0); }
+/* Selección de miniaturas — solo activa bajo demanda */
+#selectMode[aria-pressed="true"]{background:#edeaff;color:#5146ae;border-color:#8b80d4;box-shadow:0 0 0 2px rgba(81,70,174,.12)}
+#thumbStep.selection-mode #thumbGrid .thumb{cursor:pointer;position:relative}
+#thumbStep.selection-mode #thumbGrid .thumb .select-indicator{display:grid}
+#thumbGrid .thumb .select-indicator{display:none;position:absolute;z-index:2;top:7px;right:7px;width:25px;height:25px;place-items:center;border:2px solid #abb2c6;border-radius:7px;background:rgba(255,255,255,.96);font-size:17px;font-weight:900;color:white;box-shadow:0 2px 6px #1b244032}
+#thumbStep.selection-mode #thumbGrid .thumb.is-selected{border-color:#5149bd;box-shadow:0 0 0 2px #5149bd,0 7px 16px #26265a20;background:#f1efff}
+#thumbStep.selection-mode #thumbGrid .thumb.is-selected .select-indicator{background:#5149bd;border-color:#5149bd}
+.selection-help{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:12px;font-weight:550;color:#596680;margin:11px 0 3px}
+.selection-help.hidden{display:none}.selection-help button{border:0;border-radius:8px;background:#ebe9fa;color:#5045a9;padding:6px 10px;font:inherit;font-weight:750;cursor:pointer}
+#exportSelected:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:740px){#thumbStep .toolbar:first-child .actions{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:5px}#thumbStep .toolbar:first-child .actions .btn{padding:9px 10px;font-size:12px}#thumbGrid .thumb .select-indicator{width:23px;height:23px;right:4px;top:4px}.selection-help{font-size:11px}}
 </style>
-</head>
-<body>
+<style id="cutpdf-refinements">
+.grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--thumb,178px)),1fr));align-items:start}.thumb{padding:10px 10px 12px;display:flex;flex-direction:column;align-items:stretch;gap:6px;transition:box-shadow .15s,transform .15s}.thumb:hover{box-shadow:0 9px 23px #27315520;transform:translateY(-2px)}.thumb .image{width:100%;height:auto;min-height:40px;display:flex;align-items:center;justify-content:center;background:transparent;overflow:hidden}.thumb img{display:block;width:100%;height:auto;object-fit:contain;max-width:none;max-height:none}.thumb .num{font-size:20px;line-height:1.1;margin:3px 0 0;color:#28314b}.thumb .sub{font-size:11px;line-height:1.3;margin:0}.tool-reset{font-size:11px;border:0;background:#f0eefb;color:#6356bd;border-radius:7px;padding:5px 7px;font-weight:750}.tool-reset:hover{background:#e0dbff}.export-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:22px 0}.format-card{border:2px solid #e0e4f1;border-radius:16px;background:#fafbff;padding:22px 14px;text-align:center;cursor:pointer;transition:.15s;min-height:112px;color:#222943}.format-card:hover{border-color:#9d94ed;transform:translateY(-2px)}.format-card.active{border-color:#695ee0;background:#f0efff;box-shadow:0 6px 20px #6656d221}.format-card .format-icon{font-size:25px;display:block;margin-bottom:6px}.format-card strong{font-size:18px}.format-card small{display:block;color:#78819d;margin-top:6px;font-size:12px}.export-settings{display:grid;grid-template-columns:minmax(240px,1.2fr) minmax(185px,.8fr) minmax(185px,.8fr);gap:15px}.export-settings .field{background:#f8f9fe;border-radius:12px;padding:13px}.margin-modes{display:flex;gap:7px;margin:8px 0}.margin-modes label{margin:0;flex:1;cursor:pointer;border:1px solid #dde0f0;border-radius:8px;text-align:center;padding:8px 4px;background:white;font-weight:700}.margin-modes label:has(input:checked){border-color:#6458d5;background:#eeeaff;color:#5346bd}.margin-modes input{accent-color:#6458d5}.toolhead{min-height:25px}@media(max-width:740px){.export-cards{gap:7px}.format-card{padding:14px 4px;min-height:106px}.format-card strong{font-size:15px}.format-card small{font-size:10px}.export-settings{grid-template-columns:1fr}.thumb .image{height:auto}}
 
-<div id="stepUpload" class="container">
-  <div class="card">
-    <h1 class="page-title">📄 Editor de PDF</h1>
-    <p class="subtitle">Sube tu PDF (hasta 100MB / 2000 páginas), elige la división y edita</p>
+/* Cuadrícula de densidad controlada: no queda limitada a 1 o 2 columnas en móvil. */
+#thumbGrid.grid{display:grid;grid-template-columns:repeat(var(--thumb-columns,8), minmax(0,1fr));gap:clamp(3px,.65vw,10px);width:100%;align-items:start}
+#thumbGrid .thumb{min-width:0;padding:clamp(2px,.45vw,7px);gap:3px;overflow:hidden}
+#thumbGrid .thumb .image{width:100%;min-height:0;height:auto;aspect-ratio:auto;background:transparent}
+#thumbGrid .thumb img{width:100%;height:auto;max-width:100%;object-fit:contain}
+#thumbGrid .thumb .num{font-size:clamp(11px,1.2vw,19px)}
+#thumbGrid .thumb .sub{font-size:clamp(8px,.75vw,11px);overflow-wrap:anywhere}
+.thumb-zoom-icon{font-size:19px;font-weight:700;color:#6356bd;line-height:1}
+#thumbSize{width:clamp(110px,19vw,245px)}
+@media(max-width:740px){
+ #thumbGrid.grid{gap:3px}
+ #thumbGrid .thumb{padding:2px;border-radius:6px;gap:2px}
+ #thumbGrid .thumb .num{font-size:clamp(10px,2.9vw,16px);margin:1px 0}
+ #thumbGrid .thumb .sub{font-size:9px;line-height:1.15}
+ #thumbGrid .thumb .mark{display:none}
+ #thumbSize{width:min(39vw,180px)}
+ #thumbSizeText{font-size:11px}
+ #thumbStep .toolbar .actions{gap:6px}
+}
+</style>
 
-    <div class="upload-area" id="uploadArea">
-      <div style="font-size:46px;margin-bottom:10px;">📁</div>
-      <h3>Arrastra tu PDF aquí o haz clic para seleccionar</h3>
-      <p class="subtitle" style="margin:10px 0;">Archivos .pdf grandes soportados</p>
-      <input type="file" id="pdfInput" accept="application/pdf" class="hidden">
-      <button class="btn" id="btnSelectFile" type="button">Seleccionar PDF</button>
-    </div>
+<style id="cutpdf-mobile-polish">
+/* Compact export surface on desktop and mobile */
+#exportStep{max-width:1040px;margin-inline:auto}
+#exportStep .export-cards{max-width:620px;margin:15px auto 16px;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr))}
+#exportStep .format-card{min-height:80px;padding:12px 10px;border-radius:13px}
+#exportStep .format-card .format-icon{display:inline;font-size:20px;margin:0 8px 0 0}
+#exportStep .format-card strong{font-size:16px}
+#exportStep .format-card small{font-size:11px;margin-top:5px}
+#exportStep .export-settings{gap:9px}
+#exportStep .export-settings .field{padding:10px;margin-bottom:0}
+#exportStep>.hint{margin:9px 0 12px}
+#mobileSaveOpen{display:none}
+.editor-top-actions{display:flex;gap:7px;align-items:center}
+#editor .side .hint:empty{display:none}
+#editor .side .toolgroup{margin-bottom:8px;padding:9px}
+#editor .side .field{margin-bottom:8px}
+@media(max-width:740px){
+ .shell{padding:7px 5px 15px}.panel{padding:12px 9px;margin-bottom:9px;border-radius:12px}
+ .intro{padding:12px 4px}.intro h1{font-size:23px}.intro .muted{display:none}
+ .drop{padding:22px 9px}
+ .top{margin-bottom:7px}.brand{font-size:24px}.tag{font-size:10px}
+ #thumbStep{padding:10px 6px}
+ #thumbStep .toolbar{gap:6px}
+ #thumbStep .toolbar h2{font-size:19px}
+ #thumbGrid{gap:6px;margin-top:9px;grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--thumb,178px)),1fr))}
+ #thumbGrid .thumb{padding:5px 5px 7px;gap:3px}
+ #thumbGrid .thumb .num{font-size:18px}
+ #thumbGrid .thumb .sub{font-size:10px}
+ #thumbSize{width:min(48vw,185px)}
+ #exportStep .toolbar{gap:7px}#exportStep .toolbar h2{font-size:21px}
+ #exportStep .export-cards{max-width:390px;margin:10px auto 12px;gap:8px}
+ #exportStep .format-card{padding:11px 5px;min-height:74px}
+ #exportStep .format-card .format-icon{font-size:19px;margin-right:5px}
+ #exportStep .format-card strong{font-size:15px}
+ #exportStep .format-card small{font-size:10px;line-height:1.25}
+ #exportStep .export-settings{grid-template-columns:1fr 1fr;gap:6px}
+ #exportStep .export-settings .field:first-child{grid-column:1/-1}
+ #exportStep .export-settings .field{padding:8px}
+ #exportStep .export-settings select{padding:8px 5px}
+ #exportStep>.hint{font-size:10px}
+ .modal{padding:0}
+ #editor .dialog{height:100dvh;max-height:100dvh;overflow:hidden;display:flex;flex-direction:column;padding:8px 8px calc(85px + env(safe-area-inset-bottom));gap:6px}
+ #editor .dialog>.toolbar{flex:0 0 auto;margin-bottom:0!important;flex-wrap:nowrap}
+ #editor .dialog>.toolbar h2{font-size:17px}
+ #editor .editlayout{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px}
+ #editor .editlayout>div:first-child{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;overflow:auto;gap:6px}
+ #editor .stage{padding:4px;min-height:0;flex:1;overflow:hidden}
+ #editor .stage canvas{max-height:100%;max-width:100%;width:auto;height:auto;object-fit:contain}
 
-    <div id="divisionBox" class="hidden" style="margin-top:26px;">
-      <h3 style="text-align:center;margin-bottom:16px;">📐 ¿Cómo dividir cada página?</h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:420px;margin:0 auto;">
-        <div class="option-card selected" data-division="horizontal">
-          <div style="font-size:40px;">⬌</div><h4>Horizontal</h4>
-          <p style="font-size:13px;color:#666;">Mitad superior / inferior</p>
-        </div>
-        <div class="option-card" data-division="vertical">
-          <div style="font-size:40px;">⬍</div><h4>Vertical</h4>
-          <p style="font-size:13px;color:#666;">Mitad izquierda / derecha</p>
-        </div>
-      </div>
-      <div style="text-align:center;margin-top:20px;">
-        <button class="btn" id="btnProcess" type="button">Procesar PDF</button>
-        <button class="btn btn-secondary" id="btnCancelDivision" type="button">Cancelar</button>
-      </div>
-    </div>
+ #editor .hint{display:none}
+ #editor .side{display:block;flex:0 0 auto;padding:0;background:transparent;min-height:0}
+ #editor .side [data-mobile-tool]{display:none}
+ #editor .side [data-mobile-tool].mobile-tool-active{display:block}
+ #editor .side [data-mobile-tool].mobile-tool-active{margin:0;padding:9px 12px;max-height:min(31dvh,230px);overflow-y:auto;background:#fff;border:0;border-radius:14px;box-shadow:0 -4px 17px #1c29431a}
+ #editor .side .toolhead{margin-bottom:5px}
+ #editor .side .formrow{gap:6px}
+ #editor .side .field{margin:0}
+ #editor .side .toolcontrol input.precision{width:53px}
+ #editor .side hr{display:none}
+ #editor .mobile-edit-bar{padding:7px 7px calc(7px + env(safe-area-inset-bottom));gap:5px}
+ #editor .mobile-edit-bar button{flex-basis:64px;min-height:55px;font-size:10px;gap:2px;padding:4px}
+ #editor .mobile-edit-bar button span{font-size:23px}
+ #mobileSaveOpen{display:inline-flex;padding:8px 12px;font-size:13px}
+ #closeEditor{padding:8px 10px;font-size:12px}
+ #mobileSaveSheet{display:none;position:fixed;z-index:30;left:9px;right:9px;top:57px;background:#fff;border-radius:15px;padding:13px;box-shadow:0 9px 40px #101b3850}
+ #mobileSaveSheet.open{display:block}
+ #mobileSaveSheet .field{display:block!important;margin-bottom:8px!important}
+ #mobileSaveSheet #save{width:100%}
+}
+@media(max-width:380px){#editor .dialog{padding-bottom:calc(75px + env(safe-area-inset-bottom))}}
 
-    <div id="progressBox" class="hidden" style="margin-top:20px;">
-      <h3 id="progressTitle">Procesando PDF...</h3>
-      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-      <p id="progressText">Iniciando...</p>
-    </div>
-  </div>
+/* Cuadrícula de densidad controlada: no queda limitada a 1 o 2 columnas en móvil. */
+#thumbGrid.grid{display:grid;grid-template-columns:repeat(var(--thumb-columns,8), minmax(0,1fr));gap:clamp(3px,.65vw,10px);width:100%;align-items:start}
+#thumbGrid .thumb{min-width:0;padding:clamp(2px,.45vw,7px);gap:3px;overflow:hidden}
+#thumbGrid .thumb .image{width:100%;min-height:0;height:auto;aspect-ratio:auto;background:transparent}
+#thumbGrid .thumb img{width:100%;height:auto;max-width:100%;object-fit:contain}
+#thumbGrid .thumb .num{font-size:clamp(11px,1.2vw,19px)}
+#thumbGrid .thumb .sub{font-size:clamp(8px,.75vw,11px);overflow-wrap:anywhere}
+.thumb-zoom-icon{font-size:19px;font-weight:700;color:#6356bd;line-height:1}
+#thumbSize{width:clamp(110px,19vw,245px)}
+@media(max-width:740px){
+ #thumbGrid.grid{gap:3px}
+ #thumbGrid .thumb{padding:2px;border-radius:6px;gap:2px}
+ #thumbGrid .thumb .num{font-size:clamp(10px,2.9vw,16px);margin:1px 0}
+ #thumbGrid .thumb .sub{font-size:9px;line-height:1.15}
+ #thumbGrid .thumb .mark{display:none}
+ #thumbSize{width:min(39vw,180px)}
+ #thumbSizeText{font-size:11px}
+ #thumbStep .toolbar .actions{gap:6px}
+}
+</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700;750;800&display=swap" rel="stylesheet">
+<style id="cutpdf-professional-theme">
+/* Presentación visual; intencionalmente no modifica la lógica JavaScript. */
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:#1c2940;background:#f3f5f9;font-synthesis:none;--accent:#5149bd;--accent-dark:#40379e;--ink:#1c2940;--muted:#606d83;--line:#e5e9f2;--shadow:0 3px 8px rgba(26,36,67,.035),0 16px 42px rgba(26,36,67,.075)}
+body{font-family:inherit;color:var(--ink);background:linear-gradient(145deg,#f6f8fc 0%,#eef1f9 55%,#f8f9fd 100%);font-weight:500;letter-spacing:-.012em}
+button,input,select{font-family:inherit}h1,h2,h3{font-weight:800;letter-spacing:-.045em;color:#1c2741}h1{line-height:1.15}h2{line-height:1.25}p{line-height:1.55}
+.shell{max-width:1840px}.top{margin-bottom:20px}.brand{color:#4138a6;font-size:29px;letter-spacing:-1.35px;font-weight:800}.brand span{font-weight:650;color:#606987}.tag{font-size:12px;color:#66738b;font-weight:600}
+.panel{border:1px solid rgba(222,228,240,.92);background:rgba(255,255,255,.97);border-radius:19px;box-shadow:var(--shadow);padding:clamp(16px,1.35vw,25px)}
+.muted,.hint{color:#657189;font-weight:500}.hint{line-height:1.5}.stat{color:#433aa4}
+.btn{background:linear-gradient(150deg,#6258d3,#4e45b8);border:1px solid rgba(56,49,139,.13);border-radius:11px;font-weight:750;font-size:13px;letter-spacing:0;box-shadow:0 5px 11px rgba(65,53,151,.18),0 2px 4px rgba(65,53,151,.1);transition:transform .15s,box-shadow .15s,background .15s}
+.btn:hover:not(:disabled){filter:none;transform:translateY(-1px);box-shadow:0 8px 17px rgba(65,53,151,.24)}.btn:active:not(:disabled){transform:translateY(0)}
+.btn.secondary{background:#f0f2f8;border-color:#e5e9f1;color:#37435a;box-shadow:0 2px 4px rgba(28,40,75,.035)}.btn.secondary:hover:not(:disabled){background:#e7eaf4}.btn.danger{background:#fff0f1;color:#a62642;box-shadow:none}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid rgba(94,82,211,.3);outline-offset:2px}
+label{font-size:12px;font-weight:750;color:#45536d}input[type=number],input[type=text],select{border:1px solid #d9dfec;background:#fff;color:#1d2941;border-radius:10px;font-size:13px;font-weight:600;min-height:37px;box-shadow:inset 0 1px 2px rgba(24,38,68,.025)}input::placeholder{color:#8791a4;font-weight:500}.slider{accent-color:var(--accent)}
+.drop{border:1.8px dashed #a7a6e2;background:linear-gradient(145deg,#fcfcff,#f5f5fe);border-radius:17px;transition:background .2s,box-shadow .2s,border-color .2s}.drop:hover{border-color:#7268ce;background:#f6f5ff;box-shadow:0 8px 24px rgba(70,61,166,.08)}.drop strong{font-weight:750;color:#29334e}
+.choice{border:1.5px solid #e4e8f1;background:#fafbfe;border-radius:13px;box-shadow:0 3px 9px rgba(33,43,76,.035);transition:.16s}.choice:hover{border-color:#a6a0e0;box-shadow:0 7px 16px rgba(33,43,76,.075)}.choice.active{background:#f1f0ff;border-color:var(--accent);box-shadow:0 0 0 2px rgba(81,73,189,.11)}.choice h3{font-size:16px}.choice p{font-weight:500}
+#thumbGrid .thumb{background:white;border:1px solid #e3e7f0;box-shadow:0 3px 10px rgba(29,41,73,.065);transition:transform .17s,box-shadow .17s,border-color .17s}#thumbGrid .thumb:hover{border-color:#8b82d5;box-shadow:0 8px 18px rgba(40,41,83,.15);transform:translateY(-2px)}#thumbGrid .thumb.edited{border-color:#31a37c;box-shadow:0 0 0 1px rgba(49,163,124,.16),0 5px 14px rgba(31,75,65,.09)}#thumbGrid .thumb .num{font-weight:800;color:#27334b}#thumbGrid .thumb .sub{color:#68758b;font-weight:600}
+.format-card,#exportStep .format-card{background:linear-gradient(180deg,#fff,#fbfbff);border:1.5px solid #e1e5f0;box-shadow:0 4px 12px rgba(32,45,77,.065);transition:.17s}.format-card:hover,#exportStep .format-card:hover{border-color:#978dd7;box-shadow:0 9px 19px rgba(32,45,77,.09)}.format-card.active,#exportStep .format-card.active{background:#f3f1ff;border:2px solid var(--accent);box-shadow:0 0 0 3px rgba(81,73,189,.10),0 5px 18px rgba(81,73,189,.10)}.format-card strong{font-weight:800;color:#28334b}.format-card small{font-weight:550;color:#657089}
+.export-settings .field{background:#f7f8fc;border:1px solid #ecedf5;border-radius:12px}.export-settings label{color:#3f4d66}
+.modal{background:rgba(16,22,40,.78);backdrop-filter:blur(7px)}.dialog{border:1px solid rgba(255,255,255,.63);box-shadow:0 26px 85px rgba(6,14,36,.38);border-radius:20px}.stage{background:#e9edf5;background-image:radial-gradient(#cfd6e4 0.7px,transparent .7px);background-size:15px 15px;border:1px solid #dee3ee}.stage canvas{box-shadow:0 8px 28px rgba(20,29,54,.20)}.side{background:#f5f7fb;border:1px solid #e9edf4}.toolgroup{border:1px solid #e7eaf2;box-shadow:0 3px 9px rgba(18,30,60,.042);border-radius:12px}.toolhead{font-size:12px;font-weight:800;color:#35435e}.toolhead strong{color:#554abb}.tool-reset{background:#f0edff;color:#5146ae;font-weight:800}.stepbtn{background:#fafbfe;border:1px solid #dbe0eb;border-radius:8px;font-weight:800;color:#39445d;box-shadow:0 2px 5px rgba(26,36,67,.07);transition:.12s}.stepbtn:hover{background:#efedff;border-color:#a7a0df}.margin-modes label{font-weight:700}.margin-modes label:has(input:checked){color:#4036a7;border-color:#766bd3;background:#f0edff}.swatches button{box-shadow:0 2px 5px rgba(28,36,65,.12)}.swatches button.active{outline-color:#5149bd}
+.status{border:1px solid #e6e4fa;background:#f5f4ff;color:#4339a6;font-weight:650}.progress{background:#e5e7f3}.progress>div{background:linear-gradient(90deg,#6258d3,#8a7cf0)}.footer{font-weight:550}
+@media(max-width:740px){.shell{padding:9px 7px 18px}.brand{font-size:24px}.panel{border-radius:14px;padding:12px 10px}.dialog{border-radius:0;box-shadow:none}.stage{border-radius:10px}#editor .side [data-mobile-tool].mobile-tool-active{box-shadow:0 -5px 22px rgba(22,35,65,.12);border:1px solid #e8ebf4}#editor .mobile-edit-bar{background:rgba(255,255,255,.97);box-shadow:0 -6px 26px rgba(23,35,64,.17);backdrop-filter:blur(12px)}#editor .mobile-edit-bar button{background:#f3f4f9;color:#45516a;font-weight:750}#editor .mobile-edit-bar button.active{background:#5148bd;color:white;box-shadow:0 3px 10px rgba(62,53,154,.23)}#mobileSaveOpen{box-shadow:0 3px 10px rgba(64,56,155,.23)}#mobileSaveSheet{box-shadow:0 16px 55px rgba(8,17,43,.25)}#thumbGrid .thumb:hover{transform:none}}
+@media(prefers-reduced-motion:reduce){.btn,.choice,#thumbGrid .thumb,.format-card,.stepbtn{transition:none!important}}
+</style>
+</head><body>
+<div class="shell">
+<header class="top"><div class="brand">✂ CutPDF <span>Editor</span></div><div class="tag">Procesamiento local en tu navegador · sin subir el PDF a un servidor</div></header>
+<section class="panel" id="uploadStep"><div class="intro"><h1>Divide, recorta y exporta tu PDF</h1><p class="muted">Edita mitades por separado. Comprueba el resultado en miniaturas antes de descargarlo.</p></div><div class="drop" id="drop"><strong>📄 Arrastra un PDF aquí o selecciónalo</strong><span class="muted">Un archivo PDF · Recomendado hasta 100 MB según memoria disponible</span><p><button type="button" class="btn" id="pick">Elegir PDF</button></p><input hidden type="file" accept="application/pdf,.pdf" id="file"></div><div id="fileOptions" class="hidden"><p id="fileName" class="stat"></p><h3>Dirección de la división</h3><div class="cols"><button class="choice active" id="horizontal"><h3>↔ Horizontal</h3><p>Parte superior y parte inferior</p></button><button class="choice" id="vertical"><h3>↕ Vertical</h3><p>Parte izquierda y parte derecha</p></button></div><div class="actions" style="margin-top:17px"><button class="btn" id="process">Generar miniaturas</button><button class="btn secondary" id="clear">Cancelar</button></div></div></section>
+<section class="panel hidden" id="thumbStep"><div class="toolbar"><div><h2 style="margin:0 0 5px">Miniaturas y edición</h2><div class="muted" id="summary"></div></div><div class="actions"><button class="btn secondary" id="newFile">Otro PDF</button><button class="btn secondary" id="selectMode" type="button" aria-pressed="false">☑ Seleccionar</button><button class="btn hidden" id="exportSelected" type="button" disabled>Exportar seleccionadas (0) →</button><button class="btn" id="goExport">Continuar a exportar →</button></div></div><div class="toolbar" style="margin-top:13px"><div class="actions"><label for="thumbSize" style="margin:0">Zoom</label><span aria-hidden="true" class="thumb-zoom-icon">⌕−</span><input class="slider" id="thumbSize" type="range" min="2" max="12" step="1" value="8" aria-label="Número de miniaturas por fila"><span aria-hidden="true" class="thumb-zoom-icon">⌕+</span><span id="thumbSizeText" class="muted" aria-live="polite">8 por fila</span></div><span class="muted"></span></div><div id="selectionHelp" class="selection-help hidden">Selecciona las miniaturas o usa <strong>Shift</strong> para marcar un intervalo. <button id="selectAll" type="button">Todas</button><button id="clearSelection" type="button">Limpiar</button></div><div class="grid" id="thumbGrid"></div></section>
+<section class="panel hidden" id="exportStep"><div class="toolbar"><div><h2 style="margin:0 0 5px">Exportar</h2><div class="muted"></div></div><button class="btn secondary" id="back">← Volver a miniaturas</button></div><div class="export-cards" id="formatCards" aria-label="Formato de exportación"><button class="format-card active" type="button" data-format="pdf" aria-pressed="true"><span class="format-icon">▣</span><strong>PDF</strong><small>Un solo documento PDF</small></button><button class="format-card" type="button" data-format="jpg" aria-pressed="false"><span class="format-icon">▧</span><strong>JPG</strong><small>2 o más imágenes: ZIP automático</small></button></div><select id="format" class="hidden" aria-label="Formato"><option value="pdf">PDF</option><option value="jpg">JPG</option></select><div class="export-settings"><div class="field"><label for="range">Páginas</label><input id="range" type="text" placeholder="Ej. 1, 3, 5-8 (vacío = todas)"><div class="hint">Números de miniatura · ej. 2,5,8-12</div></div><div class="field"><label for="quality">Resolución</label><select id="quality"><option value="1">Original (1×)</option><option value="1.5">1.5×</option><option value="2" selected>2× — Alta</option><option value="3">3× — Máxima</option></select></div><div class="field"><label for="jpegQuality">Calidad de imagen</label><select id="jpegQuality"><option value="0.82">82 %</option><option value="0.92" selected>92 %</option><option value="0.98">98 %</option></select></div></div><p class="hint">Nota: el PDF exportado es rasterizado: no conservará texto seleccionable ni enlaces del original. Mantiene la proporción y tamaño físico de cada recorte.</p><button class="btn" id="export">Descargar resultado</button><button class="btn secondary hidden" id="cancelExport">Cancelar exportación</button></section>
+<div class="panel hidden" id="workStatus" role="status" aria-live="polite"><div id="workText" style="margin-bottom:8px">Procesando…</div><div class="progress"><div id="progressBar"></div></div></div>
+<div class="footer">CutPDF · El procesamiento ocurre en este dispositivo. Los archivos no se envían a un servidor propio.</div>
 </div>
-
-<div id="stepThumbs" class="container hidden">
-  <div class="card">
-    <h2 class="page-title">🖼️ Miniaturas</h2>
-    <p class="subtitle">Haz clic en una miniatura para editarla · el número grande indica el orden (par/impar)</p>
-
-    <div class="thumb-toolbar">
-      <span>🔍 Tamaño:</span>
-      <input type="range" id="thumbSize" min="140" max="380" value="190" step="10" style="width:200px;">
-      <span id="thumbSizeVal">190px</span>
-    </div>
-
-    <div style="text-align:center;margin-bottom:10px;">
-      <button class="btn" id="btnGoExport" type="button">Siguiente: Exportar →</button>
-      <button class="btn btn-secondary" id="btnNewPdf" type="button">Cargar otro PDF</button>
-    </div>
-
-    <div id="thumbsGrid" class="thumbs-grid"></div>
-  </div>
-</div>
-
-<div id="editorOverlay" class="modal-overlay">
-  <div class="modal-box" id="modalBox">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <h3 style="font-size:16px;">✏️ Editar página</h3>
-      <button class="btn btn-secondary" id="btnCloseEditor" type="button" style="font-size:12px;padding:7px 14px;">Guardar y cerrar</button>
-    </div>
-
-    <div class="editor-flex">
-      <div class="canvas-wrap" id="canvasWrap">
-        <canvas id="editorCanvas"></canvas>
-        <div class="dark-mask" id="maskTop"></div>
-        <div class="dark-mask" id="maskBottom"></div>
-        <div class="dark-mask" id="maskLeft"></div>
-        <div class="dark-mask" id="maskRight"></div>
-        <div class="crop-box" id="cropBox">
-          <canvas id="cropPreview"></canvas>
-          <div class="handle nw"></div><div class="handle n"></div><div class="handle ne"></div>
-          <div class="handle e"></div><div class="handle se"></div><div class="handle s"></div>
-          <div class="handle sw"></div><div class="handle w"></div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="field-group">
-          <label>📐 Tamaño del recorte</label>
-          <div class="dim-row">
-            <input type="number" id="dimWidth" placeholder="Ancho">
-            <input type="number" id="dimHeight" placeholder="Alto">
-            <select id="dimUnit"><option value="px">px</option><option value="mm">mm</option><option value="cm">cm</option></select>
-          </div>
-          <button class="btn small" id="btnApplyDim" type="button">Aplicar tamaño</button>
-        </div>
-
-        <div class="field-group">
-          <label>📏 Proporción (bloquea el recorte)</label>
-          <div class="aspect-grid" id="aspectGrid">
-            <button class="aspect-btn active" data-ratio="0">Libre</button>
-            <button class="aspect-btn" data-ratio="1.4142">A4 Vert.</button>
-            <button class="aspect-btn" data-ratio="0.7071">A4 Horiz.</button>
-            <button class="aspect-btn" data-ratio="1.294">Oficio Vert.</button>
-            <button class="aspect-btn" data-ratio="0.7727">Oficio Horiz.</button>
-            <button class="aspect-btn" data-ratio="0.75">4:3</button>
-            <button class="aspect-btn" data-ratio="0.5625">16:9</button>
-            <button class="aspect-btn" data-ratio="1">1:1</button>
-          </div>
-          <button class="btn small" style="background:linear-gradient(45deg,#ff9800,#f57c00);" id="btnSaveCustomRatio" type="button">💾 Guardar proporción (global)</button>
-        </div>
-
-        <div class="field-group">
-          <label>🔍 Zoom</label>
-          <div class="slider-row">
-            <div class="slider-wrap">
-              <input type="range" id="zoomRange" min="50" max="300" value="100" step="1">
-              <div class="tick-mark" id="zoomTick" title="Restablecer a 100%"></div>
-            </div>
-            <div class="stepper">
-              <input type="number" id="zoomInput" min="50" max="300" step="1" value="100">
-              <span class="unit">%</span>
-              <div class="arrows">
-                <button type="button" id="zoomUp">▲</button>
-                <button type="button" id="zoomDown">▼</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="field-group">
-          <label>🔄 Rotación</label>
-          <div class="slider-row">
-            <div class="slider-wrap">
-              <input type="range" id="rotRange" min="-180" max="180" value="0" step="0.5">
-              <div class="tick-mark" id="rotTick" title="Restablecer a 0°"></div>
-            </div>
-            <div class="stepper">
-              <input type="number" id="rotInput" min="-180" max="180" step="1" value="0">
-              <span class="unit">°</span>
-              <div class="arrows">
-                <button type="button" id="rotUp">▲</button>
-                <button type="button" id="rotDown">▼</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="field-group">
-          <label>🎨 Relleno de margen</label>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <input type="checkbox" id="fillEnabled"><span>Activar</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
-            <input type="color" id="fillColor" value="#ffffff" style="width:32px;height:26px;">
-            <input type="range" id="fillOpacity" min="0" max="1" step="0.05" value="1" style="flex:1;">
-            <span id="fillOpacityVal" style="width:32px;">100%</span>
-          </div>
-          <div class="dim-row" style="grid-template-columns:1fr 1fr;margin-top:6px;">
-            <input type="number" id="marginTB" placeholder="Sup/Inf %" min="0" max="45" value="8">
-            <input type="number" id="marginLR" placeholder="Izq/Der %" min="0" max="45" value="8">
-          </div>
-        </div>
-
-        <div class="field-group">
-          <label>⚡ Aplicar a más páginas</label>
-          <div class="apply-grid">
-            <button class="btn btn-secondary" id="btnApplyAll" type="button">Todas</button>
-            <button class="btn btn-secondary" id="btnApplyOdd" type="button">Impares</button>
-            <button class="btn btn-secondary" id="btnApplyEven" type="button">Pares</button>
-          </div>
-          <small>Impar/Par según el número grande de la miniatura.</small>
-        </div>
-
-        <div class="field-group" style="display:flex;gap:6px;">
-          <button class="btn btn-secondary" id="btnResetEdit" type="button" style="flex:1;">Restablecer</button>
-          <button class="btn btn-save" id="btnSaveEdit" type="button" style="flex:1;">💾 Guardar</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="stepExport" class="container hidden">
-  <div class="card">
-    <h2 class="page-title">💾 Exportar</h2>
-    <p class="subtitle">Elige el formato de salida</p>
-
-    <div class="export-grid">
-      <div class="option-card selected" data-format="pdf"><h3>📄 PDF</h3><p style="font-size:13px;color:#666;">Un solo archivo PDF</p></div>
-      <div class="option-card" data-format="jpg"><h3>🖼️ JPG</h3><p style="font-size:13px;color:#666;">Imágenes (agrupa en ZIP si son más de 2)</p></div>
-      <div class="option-card" data-format="zip"><h3>📦 ZIP</h3><p style="font-size:13px;color:#666;">Grupo de imágenes en un archivo</p></div>
-    </div>
-
-    <div id="pageRangeOptions" class="export-sub hidden">
-      <label>Páginas a exportar (número de página original del PDF)</label>
-      <input type="text" id="pageRangeInput" placeholder="Ej: 7,18  ó  1-5,57-68  (vacío = todas)">
-    </div>
-
-    <div id="zipOptions" class="export-sub hidden">
-      <label><input type="radio" name="zipScope" value="all" checked> Todas las páginas</label>
-      <label><input type="radio" name="zipScope" value="odd"> Solo impares (según numeración de miniaturas)</label>
-      <label><input type="radio" name="zipScope" value="even"> Solo pares (según numeración de miniaturas)</label>
-    </div>
-
-    <div style="text-align:center;">
-      <h3 style="margin-bottom:10px;">🔍 Resolución</h3>
-      <label style="margin-right:16px;"><input type="radio" name="res" value="1" checked> Original</label>
-      <label style="margin-right:16px;"><input type="radio" name="res" value="1.5"> 1.5x</label>
-      <label><input type="radio" name="res" value="2"> 2x</label>
-
-      <div style="margin-top:24px;">
-        <button class="btn" id="btnExport" type="button" style="font-size:16px;padding:13px 32px;">🚀 Exportar</button>
-        <button class="btn btn-secondary" id="btnBackThumbs" type="button">← Volver</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
+<div class="modal hidden" id="editor" role="dialog" aria-modal="true" aria-labelledby="editorTitle"><div class="dialog"><div class="toolbar" style="margin-bottom:13px"><div><h2 id="editorTitle" style="margin:0">Editar mitad</h2><span class="muted"></span></div><div class="editor-top-actions"><button class="btn" id="mobileSaveOpen" type="button" aria-expanded="false">Guardar ✓</button><button class="btn secondary" id="closeEditor">✕ Cerrar</button></div></div><div class="editlayout"><div><div class="stage"><canvas id="editCanvas"></canvas></div><div class="hint"></div></div><div class="side" id="editorTools"><div class="field" data-mobile-tool="crop"><label>Recorte — porcentaje de página original</label><div class="formrow"><div><label for="cropX">X (%)</label><input id="cropX" type="number" min="0" max="100" step="0.1"></div><div><label for="cropY">Y (%)</label><input id="cropY" type="number" min="0" max="100" step="0.1"></div><div><label for="cropW">Ancho (%)</label><input id="cropW" type="number" min="1" max="100" step="0.1"></div><div><label for="cropH">Alto (%)</label><input id="cropH" type="number" min="1" max="100" step="0.1"></div></div></div><div class="toolgroup" data-mobile-tool="zoom"><div class="toolhead"><span>⌕ Zoom del contenido</span><button class="tool-reset" type="button" data-reset="zoom" title="Restablecer zoom">↺ Reset</button><strong id="zoomVal"></strong></div><div class="toolcontrol"><button class="stepbtn" data-control="zoom" data-step="-1" title="Reducir zoom">−</button><input class="slider" id="zoom" type="range" min="50" max="300" value="100" step="1" aria-label="Zoom"><button class="stepbtn" data-control="zoom" data-step="1" title="Aumentar zoom">+</button><input class="precision" id="zoomNumber" type="number" min="50" max="300" step="1" aria-label="Zoom en porcentaje"><span class="unit">%</span></div></div>
+<div class="toolgroup" data-mobile-tool="rotate"><div class="toolhead"><span>⟳ Rotación</span><button class="tool-reset" type="button" data-reset="rotate" title="Restablecer rotación">↺ Reset</button><strong id="rotateVal"></strong></div><div class="toolcontrol"><button class="stepbtn" data-control="rotate" data-step="-1" title="Rotar a la izquierda">−</button><input class="slider" id="rotate" type="range" min="-180" max="180" value="0" step="1" aria-label="Rotación"><button class="stepbtn" data-control="rotate" data-step="1" title="Rotar a la derecha">+</button><input class="precision" id="rotateNumber" type="number" min="-180" max="180" step="1" aria-label="Rotación en grados"><span class="unit">°</span></div></div>
+<div class="toolgroup" data-mobile-tool="margin"><div class="toolhead"><span>▣ Margen superpuesto</span><button class="tool-reset" type="button" data-reset="margin" title="Restablecer margen">↺ Reset</button><strong id="marginVal"></strong></div><div class="toolcontrol"><button class="stepbtn" data-control="margin" data-step="-0.5" title="Reducir margen">−</button><input class="slider" id="margin" type="range" min="0" max="25" value="0" step="0.5" aria-label="Margen"><button class="stepbtn" data-control="margin" data-step="0.5" title="Ampliar margen">+</button><input class="precision" id="marginNumber" type="number" min="0" max="25" step="0.5" aria-label="Margen en porcentaje"><span class="unit">%</span></div><div class="margin-modes"><label><input type="radio" name="marginMode" value="inner" checked> Interior</label><label><input type="radio" name="marginMode" value="outer"> Exterior</label></div><div class="hint"></div></div>
+<div class="toolgroup" data-mobile-tool="color"><div class="toolhead"><span>Color del margen</span><button class="tool-reset" type="button" data-reset="color">↺ Reset</button></div><div class="palette"><input id="marginColor" type="color" value="#ffffff" aria-label="Selector de color del margen"><input id="marginHex" type="text" value="#FFFFFF" maxlength="7" aria-label="Color hexadecimal del margen"><button class="stepbtn eyedrop" id="eyedrop" title="Tomar color de la pantalla">◉ Cuentagotas</button></div><div class="swatches" id="swatches"><button data-color="#FFFFFF" style="background:#fff" title="Blanco"></button><button data-color="#000000" style="background:#000" title="Negro"></button><button data-color="#F1F3F8" style="background:#f1f3f8" title="Gris claro"></button><button data-color="#CBD5E1" style="background:#cbd5e1" title="Gris"></button><button data-color="#FEF3C7" style="background:#fef3c7" title="Crema"></button><button data-color="#DBEAFE" style="background:#dbeafe" title="Azul claro"></button><button data-color="#FCE7F3" style="background:#fce7f3" title="Rosa claro"></button><button data-color="#DCFCE7" style="background:#dcfce7" title="Verde claro"></button></div><div class="hint" id="eyeHint"></div></div><div class="field" data-mobile-tool="aspect"><label for="aspect">Proporción del recorte <button class="tool-reset" type="button" data-reset="crop">↺ Reset</button></label><select id="aspect"><option value="free">Libre</option><option value="1">1:1</option><option value="1.41421356">A4 vertical</option><option value="0.70710678">A4 horizontal</option><option value="1.3333333">4:3</option><option value="1.7777778">16:9</option></select><div class="hint"></div></div><div class="actions" data-mobile-tool="reset"><button class="btn small secondary" id="reset">Restablecer mitad</button><button class="btn small secondary" id="fit">Ajustar a mitad</button></div><hr style="border:0;border-top:1px solid #dfe3ef;margin:15px 0"><div id="mobileSaveSheet"><div class="field"><label for="apply">Guardar cambios para</label><select id="apply"><option value="one">Solo esta miniatura</option><option value="odd">Miniaturas impares</option><option value="even">Miniaturas pares</option><option value="all">Todas las miniaturas</option></select></div><button class="btn" style="width:100%" id="save">Aplicar y guardar</button></div><div class="hint"></div></div></div><nav class="mobile-edit-bar" id="mobileEditBar" aria-label="Herramientas de edición"><button type="button" data-target="crop" class="active"><span>⬚</span>Recorte</button><button type="button" data-target="aspect"><span>▢</span>Proporción</button><button type="button" data-target="zoom"><span>⌕</span>Zoom</button><button type="button" data-target="rotate"><span>⟳</span>Girar</button><button type="button" data-target="margin"><span>▣</span>Margen</button><button type="button" data-target="color"><span>◉</span>Color</button><button type="button" data-target="reset"><span>↺</span>Reset</button></nav></div></div>
 <script>
-/* ==================== CONFIG / ESTADO ==================== */
-const EDIT_SCALE = 1.8;   // resolución base usada para editar / exportar bajo demanda
-const state = {
-  division: 'horizontal',
-  pdfDoc: null,
-  pages: [],           // {id, pageNumber, half, index, thumbURL, editedCanvas, editState}
-  editingId: null,
-  editingSourceCanvas: null, // canvas de la página completa, solo durante la edición actual
-  aspectRatio: 0
-};
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-function $(id){ return document.getElementById(id); }
-function show(id){ $(id).classList.remove('hidden'); }
-function hide(id){ $(id).classList.add('hidden'); }
-function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
-
-/* ==================== SUBIDA ==================== */
-function initUpload(){
-  const uploadArea = $('uploadArea');
-  $('btnSelectFile').addEventListener('click', e=>{ e.stopPropagation(); $('pdfInput').click(); });
-  uploadArea.addEventListener('click', ()=> $('pdfInput').click());
-  $('pdfInput').addEventListener('change', e=>{
-    const file = e.target.files[0];
-    if (file && file.type === 'application/pdf') onFileChosen(file);
-    else if(file) alert('Selecciona un archivo PDF válido.');
-  });
-  uploadArea.addEventListener('dragover', e=>{ e.preventDefault(); uploadArea.classList.add('dragover'); });
-  uploadArea.addEventListener('dragleave', ()=> uploadArea.classList.remove('dragover'));
-  uploadArea.addEventListener('drop', e=>{
-    e.preventDefault(); uploadArea.classList.remove('dragover');
-    const file = e.dataTransfer.files[0];
-    if (file && file.type === 'application/pdf') onFileChosen(file);
-  });
-  document.querySelectorAll('#divisionBox .option-card').forEach(card=>{
-    card.addEventListener('click', ()=>{
-      document.querySelectorAll('#divisionBox .option-card').forEach(c=>c.classList.remove('selected'));
-      card.classList.add('selected'); state.division = card.dataset.division;
-    });
-  });
-  $('btnCancelDivision').addEventListener('click', resetToUpload);
-  $('btnProcess').addEventListener('click', ()=>{
-    if (!state.pendingFile) return;
-    hide('divisionBox'); show('progressBox');
-    processPdf(state.pendingFile);
-  });
+(()=>{'use strict';
+const $=id=>document.getElementById(id), pdfjs=window.pdfjsLib;
+if(!pdfjs||!window.jspdf||!window.JSZip){alert('No fue posible cargar las bibliotecas. Comprueba tu conexión a Internet.');return;}
+pdfjs.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+let pdf=null,file=null,split='horizontal',items=[],active=-1,draft=null,sourcePage=null,sourceCanvas=null,thumbObserver=null,generation=0,cancelled=false,busy=false,drag=null;
+let selectMode=false,selectedThumbs=new Set(),selectionAnchor=null;
+const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
+const defaultCrop=side=>split==='horizontal'?{x:0,y:side===0?0:.5,w:1,h:.5}:{x:side===0?0:.5,y:0,w:.5,h:1};
+const baseEdit=i=>({...defaultCrop(items[i].side),zoom:1,rotate:0,margin:0,marginMode:'inner',color:'#FFFFFF'});
+const identical=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+const wait=()=>new Promise(r=>setTimeout(r,0));
+function show(which){['uploadStep','thumbStep','exportStep'].forEach(id=>$(id).classList.toggle('hidden',id!==which));window.scrollTo({top:0,behavior:'instant'});}
+function status(message,pct,error=false){$('workStatus').classList.remove('hidden');$('workStatus').classList.toggle('error',error);$('workText').textContent=message;$('progressBar').style.width=clamp(pct,0,100)+'%';}
+function hideStatus(){$('workStatus').classList.add('hidden');$('workStatus').classList.remove('error');}
+function fail(err){console.error(err);status(err?.message||String(err),0,true);}
+function reset(){setSelectionMode(false);generation++;cancelled=true;for(const it of items)if(it.url)URL.revokeObjectURL(it.url);pdf?.destroy().catch(()=>{});pdf=null;file=null;items=[];active=-1;sourceCanvas=null;if(thumbObserver)thumbObserver.disconnect();$('thumbGrid').replaceChildren();$('file').value='';$('fileOptions').classList.add('hidden');hideStatus();show('uploadStep');}
+function setFile(f){if(!f)return;if(!(f.type==='application/pdf'||/\.pdf$/i.test(f.name))){fail(new Error('Selecciona un archivo PDF válido.'));return;}file=f;$('fileName').textContent=`${f.name} · ${(f.size/1048576).toFixed(1)} MB`;$('fileOptions').classList.remove('hidden');hideStatus();}
+$('pick').onclick=e=>{e.stopPropagation();$('file').click()};$('drop').onclick=e=>{if(e.target.closest('button'))return;$('file').click()};$('file').onchange=e=>setFile(e.target.files[0]);
+['dragenter','dragover'].forEach(type=>$('drop').addEventListener(type,e=>{e.preventDefault();$('drop').classList.add('over')}));['dragleave','drop'].forEach(type=>$('drop').addEventListener(type,e=>{e.preventDefault();$('drop').classList.remove('over')}));$('drop').addEventListener('drop',e=>setFile(e.dataTransfer.files[0]));
+for(const mode of ['horizontal','vertical'])$(mode).onclick=()=>{split=mode;for(const el of ['horizontal','vertical'])$(el).classList.toggle('active',el===mode)};
+$('clear').onclick=reset;$('newFile').onclick=reset;$('goExport').onclick=()=>show('exportStep');$('back').onclick=()=>show('thumbStep');
+function configureThumbZoom(){
+ const mobile=window.matchMedia('(max-width:740px)').matches;
+ const slider=$('thumbSize'), wasMobile=slider.dataset.mobile;
+ if(wasMobile!==String(mobile)){
+   slider.min=mobile?'1':'2';slider.max=mobile?'8':'12';
+   slider.value=mobile?'4':'8';slider.dataset.mobile=String(mobile);
+ }
+ const count=Number(slider.value);
+ $('thumbGrid').style.setProperty('--thumb-columns',String(count));
+ $('thumbSizeText').textContent=count+' por fila';
 }
-
-function onFileChosen(file){
-  if (file.size > 100*1024*1024){
-    if(!confirm('El archivo supera 100MB. Puede tardar bastante en procesarse. ¿Continuar?')) return;
-  }
-  state.pendingFile = file;
-  $('uploadArea').style.display = 'none';
-  show('divisionBox');
+function selectionRange(){
+ const nums=[...selectedThumbs].sort((a,b)=>a-b).map(i=>i+1);
+ if(!nums.length)return '';
+ const parts=[];let first=nums[0],last=first;
+ for(let i=1;i<=nums.length;i++){
+   if(i<nums.length&&nums[i]===last+1){last=nums[i];continue}
+   parts.push(first===last?String(first):`${first}-${last}`);
+   first=nums[i];last=first;
+ }
+ return parts.join(',');
 }
-
-function resetToUpload(){
-  state.pendingFile = null; state.pdfDoc = null; state.pages = [];
-  state.editingId = null; state.editingSourceCanvas = null;
-  hide('divisionBox'); hide('progressBox'); hide('stepThumbs'); hide('stepExport');
-  show('stepUpload');
-  $('uploadArea').style.display = 'block';
-  $('pdfInput').value = ''; $('progressFill').style.width = '0%';
+function updateSelectionUI(){
+ $('thumbStep').classList.toggle('selection-mode',selectMode);
+ $('selectMode').setAttribute('aria-pressed',String(selectMode));
+ $('selectMode').textContent=selectMode?'✓ Seleccionando':'☑ Seleccionar';
+ $('selectionHelp').classList.toggle('hidden',!selectMode);
+ $('exportSelected').classList.toggle('hidden',!selectMode);
+ $('exportSelected').disabled=selectedThumbs.size===0;
+ $('exportSelected').textContent=`Exportar seleccionadas (${selectedThumbs.size}) →`;
+ items.forEach((it,i)=>{if(!it.el)return;const on=selectedThumbs.has(i);it.el.classList.toggle('is-selected',selectMode&&on);it.el.querySelector('.select-indicator')?.replaceChildren(document.createTextNode(on?'✓':''));it.el.setAttribute('aria-pressed',selectMode?String(on):'false');it.el.title=selectMode?'Marcar mitad '+(i+1)+(selectionAnchor!==null?' · Shift para rango':''):'Editar mitad '+(i+1)});
 }
-
-/* ==================== PROCESAMIENTO (lazy / memoria controlada) ==================== */
-function getThumbScale(totalPages){
-  if (totalPages<=60) return 1.0;
-  if (totalPages<=200) return 0.7;
-  if (totalPages<=600) return 0.45;
-  if (totalPages<=1200) return 0.3;
-  return 0.2;
+function setSelectionMode(on){selectMode=on;selectedThumbs.clear();selectionAnchor=null;updateSelectionUI()}
+function selectThumbnail(index,shift){
+ if(shift&&selectionAnchor!==null){const a=Math.min(selectionAnchor,index),b=Math.max(selectionAnchor,index);for(let i=a;i<=b;i++)selectedThumbs.add(i)}
+ else{if(selectedThumbs.has(index))selectedThumbs.delete(index);else selectedThumbs.add(index);selectionAnchor=index}
+ updateSelectionUI();
 }
-
-async function processPdf(file){
-  try{
-    const buffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({data:buffer}).promise;
-    state.pdfDoc = pdf;
-    const total = pdf.numPages;
-    state.pages = [];
-    const thumbScale = getThumbScale(total);
-    let index = 0;
-
-    for (let i=1;i<=total;i++){
-      setProgress(`Generando miniaturas: página ${i} de ${total}...`, (i/total)*100);
-
-      const page = await pdf.getPage(i);
-      let viewport = page.getViewport({ scale: thumbScale });
-      // límite de seguridad de tamaño de miniatura
-      if (viewport.width > 700){
-        viewport = page.getViewport({ scale: thumbScale * (700/viewport.width) });
-      }
-      const full = document.createElement('canvas');
-      full.width = viewport.width; full.height = viewport.height;
-      await page.render({ canvasContext: full.getContext('2d'), viewport }).promise;
-
-      if (state.division === 'horizontal'){
-        const h = full.height/2;
-        index++; state.pages.push(makeHalfEntry(full,0,0,full.width,h,i,'top',index));
-        index++; state.pages.push(makeHalfEntry(full,0,h,full.width,h,i,'bottom',index));
-      } else {
-        const w = full.width/2;
-        index++; state.pages.push(makeHalfEntry(full,0,0,w,full.height,i,'left',index));
-        index++; state.pages.push(makeHalfEntry(full,w,0,w,full.height,i,'right',index));
-      }
-
-      if (i % 15 === 0) await new Promise(r=>setTimeout(r,0)); // libera el hilo de UI
-    }
-
-    setProgress('¡Completado!', 100);
-    setTimeout(renderThumbs, 400);
-
-  } catch(err){
-    console.error(err);
-    alert('No se pudo procesar el PDF: ' + err.message);
-    resetToUpload();
-  }
+$('selectMode').addEventListener('click',()=>setSelectionMode(!selectMode));
+$('selectAll').addEventListener('click',()=>{items.forEach((_,i)=>selectedThumbs.add(i));selectionAnchor=null;updateSelectionUI()});
+$('clearSelection').addEventListener('click',()=>{selectedThumbs.clear();selectionAnchor=null;updateSelectionUI()});
+$('exportSelected').addEventListener('click',()=>{if(!selectedThumbs.size)return;$('range').value=selectionRange();show('exportStep')});
+$('thumbSize').addEventListener('input',configureThumbZoom);
+window.addEventListener('resize',configureThumbZoom);
+configureThumbZoom();
+$('process').onclick=async()=>{if(!file||busy)return;const myGen=++generation;busy=true;cancelled=false;$('process').disabled=true;try{status('Abriendo PDF…',3);const bytes=await file.arrayBuffer();const doc=await pdfjs.getDocument({data:new Uint8Array(bytes)}).promise;if(myGen!==generation)return;pdf=doc;setSelectionMode(false);items=Array.from({length:doc.numPages*2},(_,i)=>({page:Math.floor(i/2)+1,side:i%2,edit:null,url:null,el:null}));buildThumbs();show('thumbStep');hideStatus();}catch(e){fail(e)}finally{busy=false;$('process').disabled=false}};
+function buildThumbs(){const grid=$('thumbGrid');grid.replaceChildren();$('summary').textContent=`${pdf.numPages} páginas originales · ${items.length} mitades · ${split==='horizontal'?'superior/inferior':'izquierda/derecha'}`;thumbObserver?.disconnect();thumbObserver=new IntersectionObserver(entries=>{for(const e of entries)if(e.isIntersecting){thumbObserver.unobserve(e.target);const i=Number(e.target.dataset.index);renderThumbnail(i).catch(err=>{console.error(err);e.target.querySelector('.sub').textContent='Error al generar miniatura'})}},{rootMargin:'350px'});items.forEach((item,i)=>{const el=document.createElement('button');el.type='button';el.className='thumb';el.dataset.index=i;const imgBox=document.createElement('div');imgBox.className='image';imgBox.textContent='Preparando…';const num=document.createElement('div');num.className='num';num.textContent=String(i+1);const sub=document.createElement('div');sub.className='sub';sub.textContent=`Página ${item.page} · ${split==='horizontal'?(item.side===0?'superior':'inferior'):(item.side===0?'izquierda':'derecha')}`;const marker=document.createElement('span');marker.className='select-indicator';marker.setAttribute('aria-hidden','true');el.append(imgBox,num,sub,marker);el.onclick=e=>{if(selectMode){selectThumbnail(i,e.shiftKey);return}openEditor(i).catch(fail)};item.el=el;grid.append(el);thumbObserver.observe(el)})}
+async function pageCanvas(pageNum,scale=1){const page=await pdf.getPage(pageNum);const vp=page.getViewport({scale});const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(vp.width));canvas.height=Math.max(1,Math.round(vp.height));await page.render({canvasContext:canvas.getContext('2d',{alpha:false}),viewport:vp}).promise;page.cleanup();return canvas}
+function rectPx(edit,w,h){return{x:edit.x*w,y:edit.y*h,w:edit.w*w,h:edit.h*h}}
+function drawResult(source,edit,scale=1){
+ const r=rectPx(edit,source.width,source.height),margin=clamp(edit.margin||0,0,.25),outer=edit.marginMode==='outer';
+ const cw=Math.max(1,Math.round(r.w)),ch=Math.max(1,Math.round(r.h));
+ const mw=outer?Math.round(cw*margin):0,mh=outer?Math.round(ch*margin):0;
+ const output=document.createElement('canvas');output.width=cw+2*mw;output.height=ch+2*mh;
+ const ctx=output.getContext('2d',{alpha:false});ctx.fillStyle=/^#[0-9a-f]{6}$/i.test(edit.color||'')?edit.color:'#FFFFFF';ctx.fillRect(0,0,output.width,output.height);
+ // Keep the selected image at its original pixel dimensions for exterior margins.
+ ctx.save();ctx.beginPath();ctx.rect(mw,mh,cw,ch);ctx.clip();ctx.translate(mw+cw/2,mh+ch/2);ctx.rotate(edit.rotate*Math.PI/180);ctx.scale(edit.zoom,edit.zoom);ctx.drawImage(source,-r.x-cw/2,-r.y-ch/2);ctx.restore();
+ if(!outer&&margin>0){const l=Math.round(cw*margin),t=Math.round(ch*margin);ctx.fillStyle=/^#[0-9a-f]{6}$/i.test(edit.color||'')?edit.color:'#FFFFFF';ctx.fillRect(0,0,cw,t);ctx.fillRect(0,ch-t,cw,t);ctx.fillRect(0,t,l,ch-2*t);ctx.fillRect(cw-l,t,l,ch-2*t)}
+ return output;
 }
-
-function makeHalfEntry(sourceFull, sx, sy, sw, sh, pageNumber, half, index){
-  const c = document.createElement('canvas');
-  c.width = sw; c.height = sh;
-  c.getContext('2d').drawImage(sourceFull, sx, sy, sw, sh, 0, 0, sw, sh);
-  const thumbURL = c.toDataURL('image/jpeg', 0.82);
-  return { id:`p${pageNumber}-${half}`, pageNumber, half, index, thumbURL, editedCanvas:null, editState:null };
+async function resultCanvas(index,scale=1,editOverride=null){const item=items[index],edit=editOverride||item.edit||baseEdit(index);const original=await pageCanvas(item.page,scale);try{return drawResult(original,{...edit,side:item.side},scale)}finally{original.width=original.height=0}}
+async function renderThumbnail(i){const item=items[i];if(!item.el)return;const imgBox=item.el.querySelector('.image');const page=await pdf.getPage(item.page),vp=page.getViewport({scale:1});page.cleanup();const scale=Math.min(1.1,650/Math.max(vp.width,vp.height));const canvas=await resultCanvas(i,scale);const url=await canvasBlobUrl(canvas,'image/jpeg',.78);canvas.width=canvas.height=0;if(item.url)URL.revokeObjectURL(item.url);item.url=url;imgBox.replaceChildren();const img=document.createElement('img');img.src=url;img.alt=`Vista previa de mitad ${i+1}`;imgBox.append(img);item.el.classList.toggle('edited',!!item.edit);item.el.querySelector('.mark')?.remove();if(item.edit){const badge=document.createElement('span');badge.className='mark';badge.textContent='EDITADA';item.el.append(badge)}}
+async function canvasBlob(canvas,type='image/jpeg',quality=.92){return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('No fue posible generar la imagen')),type,quality))}
+async function canvasBlobUrl(canvas,type,quality){return URL.createObjectURL(await canvasBlob(canvas,type,quality))}
+function normalize(e){e.x=clamp(+e.x||0,0,.99);e.y=clamp(+e.y||0,0,.99);e.w=clamp(+e.w||.01,.01,1-e.x);e.h=clamp(+e.h||.01,.01,1-e.y);e.zoom=clamp(+e.zoom||1,.5,3);e.rotate=clamp(+e.rotate||0,-180,180);e.margin=clamp(+e.margin||0,0,.25);e.marginMode=e.marginMode==='outer'?'outer':'inner';e.color=/^#[0-9a-f]{6}$/i.test(e.color||'')?e.color.toUpperCase():'#FFFFFF';return e}
+async function openEditor(i){if(busy)return;active=i;draft=structuredClone(items[i].edit||baseEdit(i));$('editorTitle').textContent=`Editar mitad ${i+1} — página ${items[i].page}`;$('editor').classList.remove('hidden');activateMobileTool('crop');$('apply').value='one';status('Cargando editor…',40);try{sourceCanvas=await pageCanvas(items[i].page,Math.min(1.5,1200/Math.max(...(await dimensions(i)))));refreshEditor();hideStatus()}catch(e){$('editor').classList.add('hidden');throw e}}
+async function dimensions(i){const p=await pdf.getPage(items[i].page),v=p.getViewport({scale:1});p.cleanup();return[v.width,v.height]}
+function closeEditor(){$('editor').classList.add('hidden');sourceCanvas?.getContext('2d')?.clearRect(0,0,sourceCanvas.width,sourceCanvas.height);sourceCanvas=null;active=-1;drag=null}
+$('closeEditor').onclick=closeEditor;$('editor').addEventListener('click',e=>{if(e.target===$('editor'))closeEditor()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('editor').classList.contains('hidden'))closeEditor()});
+function activateMobileTool(name){document.querySelectorAll('[data-mobile-tool]').forEach(el=>el.classList.toggle('mobile-tool-active',el.dataset.mobileTool===name));document.querySelectorAll('#mobileEditBar button').forEach(el=>el.classList.toggle('active',el.dataset.target===name));}
+document.querySelectorAll('#mobileEditBar button').forEach(b=>b.addEventListener('click',()=>activateMobileTool(b.dataset.target)));activateMobileTool('crop');
+function refreshEditor(){if(!sourceCanvas||active<0)return;normalize(draft);for(const key of ['x','y','w','h'])$('crop'+key.toUpperCase()).value=(draft[key]*100).toFixed(1);$('zoom').value=Math.round(draft.zoom*100);$('zoomVal').textContent=Math.round(draft.zoom*100)+' %';$('zoomNumber').value=Math.round(draft.zoom*100);$('rotate').value=draft.rotate;$('rotateVal').textContent=draft.rotate+'°';$('rotateNumber').value=draft.rotate;$('margin').value=draft.margin*100;$('marginVal').textContent=Math.round(draft.margin*1000)/10+' %';$('marginNumber').value=Math.round(draft.margin*1000)/10;document.querySelectorAll('input[name=marginMode]').forEach(el=>el.checked=el.value===draft.marginMode);$('marginColor').value=draft.color;$('marginHex').value=draft.color;document.querySelectorAll('#swatches button').forEach(b=>b.classList.toggle('active',b.dataset.color.toUpperCase()===draft.color));const maxW=880,maxH=750,s=Math.min(1,maxW/sourceCanvas.width,maxH/sourceCanvas.height),c=$('editCanvas');
+c.width=Math.max(1,Math.round(sourceCanvas.width*s));c.height=Math.max(1,Math.round(sourceCanvas.height*s));
+const ctx=c.getContext('2d');
+// Original beneath a translucent non-destructive mask.
+ctx.drawImage(sourceCanvas,0,0,c.width,c.height);
+ctx.fillStyle='rgba(15,23,42,.60)';ctx.fillRect(0,0,c.width,c.height);
+const r=rectPx(draft,c.width,c.height);
+// The live region uses exactly the same rasterizing routine as thumbnails/export.
+const live=drawResult(sourceCanvas,{...draft,side:items[active].side});
+const outer=draft.marginMode==='outer';const mx=outer?r.w*draft.margin:0,my=outer?r.h*draft.margin:0;
+ctx.drawImage(live,r.x-mx,r.y-my,r.w+mx*2,r.h+my*2);
+live.width=live.height=0;
+// Layer mask boundary: drag handles stay linked to the actual crop rectangle.
+ctx.save();ctx.strokeStyle='#ffffff';ctx.lineWidth=3;ctx.strokeRect(r.x,r.y,r.w,r.h);
+ctx.strokeStyle='#5955ed';ctx.lineWidth=1.5;ctx.strokeRect(r.x,r.y,r.w,r.h);
+ctx.restore();
+ctx.fillStyle='#ffffff';ctx.strokeStyle='#5955ed';ctx.lineWidth=1.7;
+const handle=Math.max(6,Math.min(11,c.width*.014));
+for(const [hx,hy] of [[r.x,r.y],[r.x+r.w,r.y],[r.x,r.y+r.h],[r.x+r.w,r.y+r.h]]){
+ ctx.fillRect(hx-handle/2,hy-handle/2,handle,handle);
+ ctx.strokeRect(hx-handle/2,hy-handle/2,handle,handle);
 }
-
-function setProgress(text, pct){ $('progressText').textContent=text; $('progressFill').style.width=pct+'%'; }
-
-/* Renderiza bajo demanda una página completa del PDF a una escala dada */
-async function getFullPageCanvas(pageNumber, scale){
-  const page = await state.pdfDoc.getPage(pageNumber);
-  const viewport = page.getViewport({ scale });
-  const c = document.createElement('canvas');
-  c.width = viewport.width; c.height = viewport.height;
-  await page.render({ canvasContext:c.getContext('2d'), viewport }).promise;
-  return c;
 }
-
-function cropDefaultHalf(fullCanvas, half){
-  const c = document.createElement('canvas');
-  let sx=0, sy=0, sw=fullCanvas.width, sh=fullCanvas.height;
-  if (half==='top'){ sh/=2; }
-  else if (half==='bottom'){ sh/=2; sy=sh; }
-  else if (half==='left'){ sw/=2; }
-  else if (half==='right'){ sw/=2; sx=sw; }
-  c.width=sw; c.height=sh;
-  c.getContext('2d').drawImage(fullCanvas, sx,sy,sw,sh, 0,0,sw,sh);
-  return c;
-}
-
-/* ==================== MINIATURAS ==================== */
-function renderThumbs(){
-  hide('stepUpload'); show('stepThumbs');
-  const grid = $('thumbsGrid'); grid.innerHTML = '';
-
-  state.pages.forEach(p=>{
-    const box = document.createElement('div');
-    box.className = 'thumb-box' + (p.editedCanvas ? ' edited' : '');
-    box.dataset.id = p.id;
-
-    const wrap = document.createElement('div');
-    wrap.className = 'thumb-img-wrap';
-    wrap.style.height = $('thumbSize').value + 'px';
-    const img = document.createElement('img');
-    img.src = p.editedCanvas ? p.editedCanvas.toDataURL() : p.thumbURL;
-    wrap.appendChild(img);
-
-    const idx = document.createElement('div');
-    idx.className = 'thumb-index'; idx.textContent = p.index;
-
-    const halfNames = {top:'Superior', bottom:'Inferior', left:'Izquierda', right:'Derecha'};
-    const sub = document.createElement('div');
-    sub.className = 'thumb-sub';
-    sub.textContent = `Página ${p.pageNumber} · ${halfNames[p.half]}`;
-
-    box.appendChild(wrap); box.appendChild(idx); box.appendChild(sub);
-    box.addEventListener('click', ()=> openEditor(p.id));
-    grid.appendChild(box);
-  });
-}
-
-function refreshThumbSizes(){
-  const size = $('thumbSize').value;
-  $('thumbSizeVal').textContent = size + 'px';
-  document.querySelectorAll('.thumb-img-wrap').forEach(w=> w.style.height = size + 'px');
-}
-
-function updateThumbImage(id){
-  const p = state.pages.find(pg=>pg.id===id);
-  const box = document.querySelector(`.thumb-box[data-id="${id}"]`);
-  if (!p || !box) return;
-  box.querySelector('img').src = p.editedCanvas.toDataURL();
-  box.classList.add('edited');
-}
-
-/* ==================== EDITOR ==================== */
-let cropDrag = null;
-function currentPage(){ return state.pages.find(pg=>pg.id===state.editingId); }
-
-async function openEditor(id){
-  state.editingId = id;
-  const p = state.pages.find(pg=>pg.id===id);
-  if (!p) return;
-
-  toast('Cargando página...');
-  const fullCanvas = await getFullPageCanvas(p.pageNumber, EDIT_SCALE);
-  state.editingSourceCanvas = fullCanvas;
-
-  const canvas = $('editorCanvas');
-  const ctx = canvas.getContext('2d');
-  const maxW = Math.min(640, window.innerWidth*0.55);
-  const maxH = Math.min(500, window.innerHeight*0.62);
-  const scale = Math.min(maxW/fullCanvas.width, maxH/fullCanvas.height, 1);
-
-  canvas.width = Math.round(fullCanvas.width*scale);
-  canvas.height = Math.round(fullCanvas.height*scale);
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.drawImage(fullCanvas, 0,0, canvas.width, canvas.height);
-
-  if (p.editState){
-    const st = p.editState;
-    setZoom(Math.round(st.zoom*100)); setRotation(st.rotation);
-    $('fillEnabled').checked = st.fillEnabled;
-    $('fillColor').value = st.fillColor;
-    $('fillOpacity').value = st.fillOpacity;
-    $('fillOpacityVal').textContent = Math.round(st.fillOpacity*100)+'%';
-    $('marginTB').value = st.marginTB; $('marginLR').value = st.marginLR;
-    state.aspectRatio = st.aspectRatio || 0;
-    activateAspectButtonForRatio(state.aspectRatio);
-    setCropBox({
-      left: st.xPct*canvas.width, top: st.yPct*canvas.height,
-      width: st.wPct*canvas.width, height: st.hPct*canvas.height
-    });
-  } else {
-    setZoom(100); setRotation(0);
-    $('fillEnabled').checked = false; $('fillColor').value = '#ffffff';
-    $('fillOpacity').value = 1; $('fillOpacityVal').textContent = '100%';
-    $('marginTB').value = 8; $('marginLR').value = 8;
-    state.aspectRatio = 0; activateAspectButtonForRatio(0);
-    setCropBox(defaultCropRect(canvas));
-  }
-
-  positionTicks();
-  $('editorOverlay').classList.add('show');
-}
-
-function defaultCropRect(canvas){
-  const w = canvas.width*0.55, h = canvas.height*0.55;
-  return { left:(canvas.width-w)/2, top:(canvas.height-h)/2, width:w, height:h };
-}
-
-function setCropBox(rect){
-  const box = $('cropBox');
-  box.style.left=rect.left+'px'; box.style.top=rect.top+'px';
-  box.style.width=rect.width+'px'; box.style.height=rect.height+'px';
-  updateMasks(rect); updateDimInputs(); renderCropPreview();
-}
-function getCropRect(){
-  const box = $('cropBox');
-  return { left:parseFloat(box.style.left), top:parseFloat(box.style.top),
-           width:parseFloat(box.style.width), height:parseFloat(box.style.height) };
-}
-function updateMasks(rect){
-  const canvas = $('editorCanvas');
-  $('maskTop').style.cssText    = `left:0px;top:0px;width:${canvas.width}px;height:${rect.top}px;`;
-  $('maskBottom').style.cssText = `left:0px;top:${rect.top+rect.height}px;width:${canvas.width}px;height:${canvas.height-(rect.top+rect.height)}px;`;
-  $('maskLeft').style.cssText   = `left:0px;top:${rect.top}px;width:${rect.left}px;height:${rect.height}px;`;
-  $('maskRight').style.cssText  = `left:${rect.left+rect.width}px;top:${rect.top}px;width:${canvas.width-(rect.left+rect.width)}px;height:${rect.height}px;`;
-}
-
-function renderCropPreview(){
-  const canvas = $('editorCanvas'); const rect = getCropRect(); const prev = $('cropPreview');
-  const src = state.editingSourceCanvas; if (!src) return;
-  prev.width = Math.max(1, Math.round(rect.width));
-  prev.height = Math.max(1, Math.round(rect.height));
-  const pctx = prev.getContext('2d');
-
-  const scaleX = src.width/canvas.width, scaleY = src.height/canvas.height;
-  const cropX = rect.left*scaleX, cropY = rect.top*scaleY;
-  const cropW = rect.width*scaleX, cropH = rect.height*scaleY;
-
-  const zoom = parseFloat($('zoomRange').value)/100;
-  const rotationDeg = parseFloat($('rotRange').value);
-
-  pctx.clearRect(0,0,prev.width,prev.height);
-  pctx.save();
-  if (rotationDeg!==0 || zoom!==1){
-    pctx.translate(prev.width/2, prev.height/2);
-    if (rotationDeg!==0) pctx.rotate(rotationDeg*Math.PI/180);
-    if (zoom!==1) pctx.scale(zoom, zoom);
-    pctx.translate(-prev.width/2, -prev.height/2);
-  }
-  pctx.drawImage(src, cropX, cropY, cropW, cropH, 0,0, prev.width, prev.height);
-  pctx.restore();
-
-  if ($('fillEnabled').checked){
-    drawMarginFill(pctx, prev.width, prev.height, $('fillColor').value,
-      parseFloat($('fillOpacity').value), parseFloat($('marginTB').value)||0, parseFloat($('marginLR').value)||0);
-  }
-}
-
-function clampCropRect(rect, canvas){
-  rect.width = Math.max(20, Math.min(rect.width, canvas.width));
-  rect.height = Math.max(20, Math.min(rect.height, canvas.height));
-  rect.left = Math.max(0, Math.min(rect.left, canvas.width-rect.width));
-  rect.top = Math.max(0, Math.min(rect.top, canvas.height-rect.height));
-  return rect;
-}
-
-function initCropDragging(){
-  const box = $('cropBox'); const canvas = $('editorCanvas');
-  box.addEventListener('mousedown', e=>{
-    const handle = e.target.classList.contains('handle') ? [...e.target.classList].find(c=>c!=='handle') : null;
-    cropDrag = { mode: handle?'resize':'move', handle, startClientX:e.clientX, startClientY:e.clientY, startBox:{...getCropRect()} };
-    e.preventDefault(); e.stopPropagation();
-  });
-  document.addEventListener('mousemove', e=>{
-    if (!cropDrag) return;
-    const dx=e.clientX-cropDrag.startClientX, dy=e.clientY-cropDrag.startClientY;
-    let rect;
-    if (cropDrag.mode==='move'){
-      rect={...cropDrag.startBox}; rect.left+=dx; rect.top+=dy; rect=clampCropRect(rect, canvas);
-    } else if (state.aspectRatio>0){
-      rect = resizeRectLocked(cropDrag.startBox, cropDrag.handle, dx, dy, canvas, state.aspectRatio);
-    } else {
-      rect = resizeRectFree(cropDrag.startBox, cropDrag.handle, dx, dy); rect=clampCropRect(rect, canvas);
-    }
-    setCropBox(rect);
-  });
-  document.addEventListener('mouseup', ()=> cropDrag=null);
-}
-
-function resizeRectFree(start, handle, dx, dy){
-  let {left,top,width,height}=start;
-  if (handle.includes('e')) width = start.width+dx;
-  if (handle.includes('s')) height = start.height+dy;
-  if (handle.includes('w')) { width = start.width-dx; left = start.left+dx; }
-  if (handle.includes('n')) { height = start.height-dy; top = start.top+dy; }
-  width=Math.max(20,width); height=Math.max(20,height);
-  return {left,top,width,height};
-}
-
-function resizeRectLocked(start, handle, dx, dy, canvas, ratio){
-  const left0=start.left, top0=start.top, w0=start.width, h0=start.height;
-  const right0=left0+w0, bottom0=top0+h0;
-  let anchorX, anchorXType;
-  if (handle.includes('w')) { anchorX=right0; anchorXType='right'; }
-  else if (handle.includes('e')) { anchorX=left0; anchorXType='left'; }
-  else { anchorX=left0+w0/2; anchorXType='center'; }
-  let anchorY, anchorYType;
-  if (handle.includes('n')) { anchorY=bottom0; anchorYType='bottom'; }
-  else if (handle.includes('s')) { anchorY=top0; anchorYType='top'; }
-  else { anchorY=top0+h0/2; anchorYType='center'; }
-  let desiredWidth;
-  if (handle.includes('e')) desiredWidth=w0+dx;
-  else if (handle.includes('w')) desiredWidth=w0-dx;
-  else { const dh = handle==='s'? h0+dy : h0-dy; desiredWidth = dh/ratio; }
-  desiredWidth=Math.max(20,desiredWidth);
-  return fitLockedRect(anchorX,anchorXType,anchorY,anchorYType,desiredWidth,ratio,canvas);
-}
-
-function fitLockedRect(anchorX,anchorXType,anchorY,anchorYType,desiredWidth,ratio,canvas){
-  let maxWidthX;
-  if (anchorXType==='right') maxWidthX=anchorX;
-  else if (anchorXType==='left') maxWidthX=canvas.width-anchorX;
-  else maxWidthX=2*Math.min(anchorX, canvas.width-anchorX);
-  let maxHeightY;
-  if (anchorYType==='bottom') maxHeightY=anchorY;
-  else if (anchorYType==='top') maxHeightY=canvas.height-anchorY;
-  else maxHeightY=2*Math.min(anchorY, canvas.height-anchorY);
-  const maxWidthFromY = maxHeightY/ratio;
-  const finalWidth = Math.max(20, Math.min(desiredWidth, maxWidthX, maxWidthFromY));
-  const finalHeight = finalWidth*ratio;
-  let left, top;
-  if (anchorXType==='right') left=anchorX-finalWidth; else if (anchorXType==='left') left=anchorX; else left=anchorX-finalWidth/2;
-  if (anchorYType==='bottom') top=anchorY-finalHeight; else if (anchorYType==='top') top=anchorY; else top=anchorY-finalHeight/2;
-  return {left,top,width:finalWidth,height:finalHeight};
-}
-
-function updateDimInputs(){
-  const rect=getCropRect(); const unit=$('dimUnit').value;
-  $('dimWidth').value=pxTo(unit,rect.width); $('dimHeight').value=pxTo(unit,rect.height);
-}
-function pxTo(unit,px){ if(unit==='mm') return Math.round(px*25.4/96); if(unit==='cm') return Math.round(px*2.54/96*10)/10; return Math.round(px); }
-function toPx(unit,val){ if(unit==='mm') return val*96/25.4; if(unit==='cm') return val*96/2.54; return val; }
-
-function applyDimInputs(){
-  const canvas=$('editorCanvas'); const unit=$('dimUnit').value;
-  const w=parseFloat($('dimWidth').value), h=parseFloat($('dimHeight').value);
-  if (!w || !h) return;
-  const rect=getCropRect(); const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
-  const pxW=toPx(unit,w);
-  let finalRect;
-  if (state.aspectRatio>0) finalRect = fitLockedRect(cx,'center',cy,'center',pxW,state.aspectRatio,canvas);
-  else { const pxH=toPx(unit,h); finalRect = clampCropRect({left:cx-pxW/2, top:cy-pxH/2, width:pxW, height:pxH}, canvas); }
-  setCropBox(finalRect);
-}
-
-/* --- proporciones --- */
-function bindAspectButton(btn){
-  btn.addEventListener('click', ()=>{
-    document.querySelectorAll('.aspect-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    state.aspectRatio = parseFloat(btn.dataset.ratio);
-    if (state.aspectRatio>0){
-      const canvas=$('editorCanvas'); const rect=getCropRect();
-      const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
-      setCropBox(fitLockedRect(cx,'center',cy,'center',rect.width,state.aspectRatio,canvas));
-    }
-  });
-}
-function initAspectButtons(){
-  document.querySelectorAll('.aspect-btn').forEach(bindAspectButton);
-  $('btnSaveCustomRatio').addEventListener('click', ()=>{
-    const rect=getCropRect(); const ratio=rect.height/rect.width;
-    let btn=document.getElementById('customAspectBtn');
-    if (!btn){ btn=document.createElement('button'); btn.id='customAspectBtn'; btn.className='aspect-btn custom'; bindAspectButton(btn); $('aspectGrid').appendChild(btn); }
-    btn.dataset.ratio=ratio; btn.textContent='⭐ '+ratio.toFixed(2);
-    document.querySelectorAll('.aspect-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active'); state.aspectRatio=ratio;
-    toast('💾 Proporción guardada para todas las páginas');
-  });
-}
-function activateAspectButtonForRatio(ratio){
-  document.querySelectorAll('.aspect-btn').forEach(b=>b.classList.remove('active'));
-  if (ratio===0){ document.querySelector('.aspect-btn[data-ratio="0"]').classList.add('active'); return; }
-  const match=[...document.querySelectorAll('.aspect-btn')].find(b=>Math.abs(parseFloat(b.dataset.ratio)-ratio)<0.001);
-  if (match) match.classList.add('active'); else document.querySelector('.aspect-btn[data-ratio="0"]').classList.add('active');
-}
-
-/* --- zoom / rotación con stepper y tick --- */
-function setZoom(v){
-  v = Math.max(50, Math.min(300, Math.round(v)));
-  $('zoomRange').value=v; $('zoomInput').value=v; renderCropPreview();
-}
-function setRotation(v){
-  v = Math.max(-180, Math.min(180, Math.round(v*2)/2));
-  $('rotRange').value=v; $('rotInput').value=v; renderCropPreview();
-}
-function positionTicks(){
-  const zr=$('zoomRange'), rr=$('rotRange');
-  const zPct = (100-zr.min)/(zr.max-zr.min)*100;
-  const rPct = (0-rr.min)/(rr.max-rr.min)*100;
-  $('zoomTick').style.left = zPct+'%';
-  $('rotTick').style.left = rPct+'%';
-}
-
-function initZoomRotationControls(){
-  $('zoomRange').addEventListener('input', e=> setZoom(parseFloat(e.target.value)));
-  $('zoomInput').addEventListener('change', e=> setZoom(parseFloat(e.target.value)||100));
-  $('zoomUp').addEventListener('click', ()=> setZoom(parseFloat($('zoomInput').value)+1));
-  $('zoomDown').addEventListener('click', ()=> setZoom(parseFloat($('zoomInput').value)-1));
-  $('zoomTick').addEventListener('click', ()=> setZoom(100));
-
-  $('rotRange').addEventListener('input', e=> setRotation(parseFloat(e.target.value)));
-  $('rotInput').addEventListener('change', e=> setRotation(parseFloat(e.target.value)||0));
-  $('rotUp').addEventListener('click', ()=> setRotation(parseFloat($('rotInput').value)+0.5));
-  $('rotDown').addEventListener('click', ()=> setRotation(parseFloat($('rotInput').value)-0.5));
-  $('rotTick').addEventListener('click', ()=> setRotation(0));
-
-  window.addEventListener('resize', positionTicks);
-}
-
-/* --- controles generales --- */
-function initEditorControls(){
-  $('fillOpacity').addEventListener('input', e=>{ $('fillOpacityVal').textContent=Math.round(e.target.value*100)+'%'; renderCropPreview(); });
-  $('fillColor').addEventListener('input', renderCropPreview);
-  $('fillEnabled').addEventListener('change', renderCropPreview);
-  $('marginTB').addEventListener('input', renderCropPreview);
-  $('marginLR').addEventListener('input', renderCropPreview);
-  $('dimUnit').addEventListener('change', updateDimInputs);
-  $('btnApplyDim').addEventListener('click', applyDimInputs);
-
-  $('btnResetEdit').addEventListener('click', ()=>{
-    setZoom(100); setRotation(0);
-    $('fillEnabled').checked=false; $('fillColor').value='#ffffff';
-    $('fillOpacity').value=1; $('fillOpacityVal').textContent='100%';
-    state.aspectRatio=0; activateAspectButtonForRatio(0);
-    setCropBox(defaultCropRect($('editorCanvas')));
-  });
-
-  $('btnCloseEditor').addEventListener('click', ()=>{ if(state.editingId) saveEditedPage(); });
-  $('btnSaveEdit').addEventListener('click', saveEditedPage);
-  $('btnApplyAll').addEventListener('click', ()=> applyToScope('all'));
-  $('btnApplyOdd').addEventListener('click', ()=> applyToScope('odd'));
-  $('btnApplyEven').addEventListener('click', ()=> applyToScope('even'));
-
-  $('modalBox').addEventListener('click', e=> e.stopPropagation());
-  $('editorOverlay').addEventListener('click', ()=>{ if(state.editingId) saveEditedPage(); });
-  document.addEventListener('keydown', e=>{
-    if (e.key==='Escape' && $('editorOverlay').classList.contains('show') && state.editingId) saveEditedPage();
-  });
-}
-
-function closeEditorSilent(){
-  $('editorOverlay').classList.remove('show');
-  state.editingId = null; state.editingSourceCanvas = null;
-}
-
-/* --- guardado --- */
-function buildEditedCanvas(sourceCanvas, xPct, yPct, wPct, hPct, zoom, rotationDeg, fillEnabled, fillColor, fillOpacity, marginTB, marginLR){
-  const cropX = xPct*sourceCanvas.width, cropY = yPct*sourceCanvas.height;
-  const cropW = wPct*sourceCanvas.width, cropH = hPct*sourceCanvas.height;
-  const out = document.createElement('canvas');
-  out.width = Math.max(1, Math.round(cropW)); out.height = Math.max(1, Math.round(cropH));
-  const octx = out.getContext('2d');
-  octx.save();
-  if (rotationDeg!==0 || zoom!==1){
-    octx.translate(out.width/2, out.height/2);
-    if (rotationDeg!==0) octx.rotate(rotationDeg*Math.PI/180);
-    if (zoom!==1) octx.scale(zoom, zoom);
-    octx.translate(-out.width/2, -out.height/2);
-  }
-  octx.drawImage(sourceCanvas, cropX, cropY, cropW, cropH, 0,0, out.width, out.height);
-  octx.restore();
-  if (fillEnabled) drawMarginFill(octx, out.width, out.height, fillColor, fillOpacity, marginTB, marginLR);
-  return out;
-}
-
-function readCurrentParams(){
-  const canvas=$('editorCanvas'); const rect=getCropRect();
-  return {
-    xPct: rect.left/canvas.width, yPct: rect.top/canvas.height,
-    wPct: rect.width/canvas.width, hPct: rect.height/canvas.height,
-    zoom: parseFloat($('zoomRange').value)/100,
-    rotationDeg: parseFloat($('rotRange').value),
-    fillEnabled: $('fillEnabled').checked, fillColor: $('fillColor').value,
-    fillOpacity: parseFloat($('fillOpacity').value),
-    marginTB: parseFloat($('marginTB').value)||0, marginLR: parseFloat($('marginLR').value)||0,
-    aspectRatio: state.aspectRatio
-  };
-}
-
-function saveEditedPage(){
-  const p = currentPage(); if (!p || !state.editingSourceCanvas) return;
-  const params = readCurrentParams();
-  p.editedCanvas = buildEditedCanvas(state.editingSourceCanvas, params.xPct, params.yPct, params.wPct, params.hPct,
-    params.zoom, params.rotationDeg, params.fillEnabled, params.fillColor, params.fillOpacity, params.marginTB, params.marginLR);
-  p.editState = params;
-  updateThumbImage(p.id);
-  closeEditorSilent();
-  toast('✓ Página guardada');
-}
-
-async function applyToScope(scope){
-  const current = currentPage(); if (!current || !state.editingSourceCanvas) return;
-  const params = readCurrentParams();
-
-  const targets = state.pages.filter(pg=>{
-    if (scope==='all') return true;
-    if (scope==='odd') return pg.index % 2 === 1;
-    return pg.index % 2 === 0;
-  });
-
-  toast(`Aplicando a ${targets.length} página(s)...`);
-  for (const pg of targets){
-    let src;
-    if (pg.id === current.id) src = state.editingSourceCanvas;
-    else src = await getFullPageCanvas(pg.pageNumber, EDIT_SCALE);
-    pg.editedCanvas = buildEditedCanvas(src, params.xPct, params.yPct, params.wPct, params.hPct,
-      params.zoom, params.rotationDeg, params.fillEnabled, params.fillColor, params.fillOpacity, params.marginTB, params.marginLR);
-    pg.editState = params;
-  }
-  renderThumbs();
-  closeEditorSilent();
-  toast(`✓ Recorte aplicado a ${targets.length} página(s)`);
-}
-
-function drawMarginFill(ctx, w, h, color, opacity, tbPercent, lrPercent){
-  const tb=Math.max(0,Math.min(45,tbPercent))/100, lr=Math.max(0,Math.min(45,lrPercent))/100;
-  const r=parseInt(color.substr(1,2),16), g=parseInt(color.substr(3,2),16), b=parseInt(color.substr(5,2),16);
-  ctx.fillStyle = `rgba(${r},${g},${b},${opacity})`;
-  const topPx=h*tb, bottomPx=h*tb, leftPx=w*lr, rightPx=w*lr;
-  if (topPx>0) ctx.fillRect(0,0,w,topPx);
-  if (bottomPx>0) ctx.fillRect(0,h-bottomPx,w,bottomPx);
-  if (leftPx>0) ctx.fillRect(0,0,leftPx,h);
-  if (rightPx>0) ctx.fillRect(w-rightPx,0,rightPx,h);
-}
-
-/* ==================== EXPORTAR ==================== */
-function initExport(){
-  $('btnGoExport').addEventListener('click', ()=>{ hide('stepThumbs'); show('stepExport'); });
-  $('btnBackThumbs').addEventListener('click', ()=>{ hide('stepExport'); show('stepThumbs'); });
-  $('btnNewPdf').addEventListener('click', resetToUpload);
-
-  document.querySelectorAll('#stepExport .option-card').forEach(c=>{
-    c.addEventListener('click', ()=>{
-      document.querySelectorAll('#stepExport .option-card').forEach(x=>x.classList.remove('selected'));
-      c.classList.add('selected');
-      hide('pageRangeOptions'); hide('zipOptions');
-      if (c.dataset.format==='pdf' || c.dataset.format==='jpg') show('pageRangeOptions');
-      if (c.dataset.format==='zip') show('zipOptions');
-    });
-  });
-  show('pageRangeOptions'); // formato inicial = pdf
-
-  $('btnExport').addEventListener('click', runExport);
-}
-
-function parsePageList(str){
-  str=(str||'').trim(); if(!str) return null;
-  const parts=str.split(',').map(s=>s.trim()).filter(Boolean);
-  const list=[];
-  parts.forEach(part=>{
-    const m=part.match(/^(\d+)\s*-\s*(\d+)$/);
-    if (m){
-      let a=parseInt(m[1]), b=parseInt(m[2]);
-      if (a<=b) for(let n=a;n<=b;n++) list.push(n);
-      else for(let n=a;n>=b;n--) list.push(n);
-    } else {
-      const n=parseInt(part); if(!isNaN(n)) list.push(n);
-    }
-  });
-  return list.length? list : null;
-}
-
-function pagesForIndexList(list){
-  const out = [];
-  list.forEach(idx=>{
-    const found = state.pages.find(p=>p.index===idx);
-    if (found) out.push(found);
-  });
-  return out;
-}
-
-async function resolveFinalCanvas(p, resolution){
-  if (p.editedCanvas) return scaledCanvas(p.editedCanvas, resolution);
-  const full = await getFullPageCanvas(p.pageNumber, EDIT_SCALE*resolution);
-  return cropDefaultHalf(full, p.half);
-}
-
-function scaledCanvas(source, factor){
-  if (factor===1) return source;
-  const c=document.createElement('canvas');
-  c.width=Math.round(source.width*factor); c.height=Math.round(source.height*factor);
-  const ctx=c.getContext('2d'); ctx.scale(factor,factor); ctx.drawImage(source,0,0);
-  return c;
-}
-
-async function runExport(){
-  const format = document.querySelector('#stepExport .option-card.selected').dataset.format;
-  const res = parseFloat(document.querySelector('input[name="res"]:checked').value);
-
-  let pagesToExport = state.pages;
-
-  if (format==='pdf' || format==='jpg'){
-    const list = parsePageList($('pageRangeInput').value);
-    if (list) pagesToExport = pagesForIndexList(list);
-  }
-  if (format==='zip'){
-    const scope = document.querySelector('input[name="zipScope"]:checked').value;
-    if (scope==='odd') pagesToExport = state.pages.filter(p=>p.index%2===1);
-    else if (scope==='even') pagesToExport = state.pages.filter(p=>p.index%2===0);
-  }
-
-  if (pagesToExport.length===0){ alert('No hay páginas que coincidan con el filtro.'); return; }
-
-  const overlay = document.createElement('div');
-  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:6000;';
-  overlay.innerHTML=`<div style="background:#fff;padding:26px;border-radius:12px;min-width:280px;text-align:center;">
-    <h3>🚀 Exportando...</h3>
-    <div class="progress-bar" style="margin:14px 0;"><div class="progress-fill" id="expFill"></div></div>
-    <p id="expText">Preparando...</p></div>`;
-  document.body.appendChild(overlay);
-
-  try{
-    if (format==='pdf') await exportPdf(res, overlay, pagesToExport);
-    else if (format==='zip') await exportZip(res, overlay, pagesToExport);
-    else { // jpg
-      if (pagesToExport.length>2) await exportZip(res, overlay, pagesToExport);
-      else await exportIndividualJpgs(res, overlay, pagesToExport);
-    }
-    overlay.querySelector('div').innerHTML=`<h3>✅ Listo</h3><button class="btn" id="closeExp">Cerrar</button>`;
-    overlay.querySelector('#closeExp').addEventListener('click', ()=>overlay.remove());
-  } catch(err){
-    console.error(err);
-    overlay.querySelector('div').innerHTML=`<h3>❌ Error</h3><p>${err.message}</p><button class="btn" id="closeExp">Cerrar</button>`;
-    overlay.querySelector('#closeExp').addEventListener('click', ()=>overlay.remove());
-  }
-}
-
-async function exportPdf(res, overlay, pages){
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF();
-  const fill=overlay.querySelector('#expFill'), text=overlay.querySelector('#expText');
-
-  for (let i=0;i<pages.length;i++){
-    const p = pages[i];
-    fill.style.width=((i/pages.length)*100)+'%';
-    text.textContent=`Miniatura ${p.index} (${i+1}/${pages.length})`;
-
-    const finalCanvas = await resolveFinalCanvas(p, res);
-    const img = finalCanvas.toDataURL('image/jpeg', 0.95);
-
-    if (i>0) pdf.addPage();
-    const pw=pdf.internal.pageSize.getWidth(), ph=pdf.internal.pageSize.getHeight();
-    const ar=finalCanvas.width/finalCanvas.height, par=pw/ph;
-    let iw,ih;
-    if (ar>par){ iw=pw; ih=pw/ar; } else { ih=ph; iw=ph*ar; }
-    pdf.addImage(img,'JPEG',(pw-iw)/2,(ph-ih)/2,iw,ih);
-    await new Promise(r=>setTimeout(r,0));
-  }
-  pdf.save(`documento-${res}x.pdf`);
-}
-
-async function exportIndividualJpgs(res, overlay, pages){
-  const fill=overlay.querySelector('#expFill'), text=overlay.querySelector('#expText');
-  for (let i=0;i<pages.length;i++){
-    const p=pages[i];
-    fill.style.width=((i/pages.length)*100)+'%';
-    text.textContent=`Imagen ${i+1}/${pages.length}`;
-    const finalCanvas = await resolveFinalCanvas(p, res);
-    const img = finalCanvas.toDataURL('image/jpeg', 0.95);
-    const a=document.createElement('a'); a.href=img;
-    a.download=`pagina-${p.pageNumber}-${p.half}-${res}x.jpg`; a.click();
-    await new Promise(r=>setTimeout(r,150));
-  }
-}
-
-async function exportZip(res, overlay, pages){
-  const fill=overlay.querySelector('#expFill'), text=overlay.querySelector('#expText');
-  const zip = new JSZip();
-  for (let i=0;i<pages.length;i++){
-    const p=pages[i];
-    fill.style.width=((i/pages.length)*100)+'%';
-    text.textContent=`Comprimiendo ${i+1}/${pages.length}`;
-    const finalCanvas = await resolveFinalCanvas(p, res);
-    const dataURL = finalCanvas.toDataURL('image/jpeg', 0.92);
-    const base64 = dataURL.split(',')[1];
-    zip.file(`pagina-${String(p.index).padStart(4,'0')}-orig${p.pageNumber}-${p.half}.jpg`, base64, {base64:true});
-    if (i%20===0) await new Promise(r=>setTimeout(r,0));
-  }
-  text.textContent = 'Generando archivo ZIP...';
-  const blob = await zip.generateAsync({type:'blob'});
-  const url = URL.createObjectURL(blob);
-  const a=document.createElement('a'); a.href=url; a.download=`imagenes-${res}x.zip`; a.click();
-  setTimeout(()=>URL.revokeObjectURL(url), 2000);
-}
-
-/* ==================== INIT ==================== */
-document.addEventListener('DOMContentLoaded', ()=>{
-  initUpload();
-  initExport();
-  initCropDragging();
-  initAspectButtons();
-  initEditorControls();
-  initZoomRotationControls();
-  $('thumbSize').addEventListener('input', refreshThumbSizes);
-});
-</script>
-</body>
-</html>
+for(const key of ['X','Y','W','H'])$('crop'+key).onchange=e=>{const val=Number(e.target.value);if(!Number.isFinite(val))return;draft[key.toLowerCase()]=val/100;refreshEditor()};
+for(const [id,key,div] of [['zoom','zoom',100],['rotate','rotate',1],['margin','margin',100]])$(id).oninput=e=>{draft[key]=+e.target.value/div;refreshEditor()};
+for(const id of ['zoom','rotate','margin']){const n=$(id+'Number');n.addEventListener('change',()=>{const val=Number(n.value);if(!Number.isFinite(val))return;draft[id]=id==='zoom'?val/100:id==='margin'?val/100:val;refreshEditor()});n.addEventListener('keydown',e=>{if(e.key==='Enter'){n.blur()}})}
+document.querySelectorAll('[data-control]').forEach(b=>b.addEventListener('click',()=>{const key=b.dataset.control,step=Number(b.dataset.step);draft[key]=Number((draft[key]+(key==='zoom'||key==='margin'?step/100:step)).toFixed(4));refreshEditor()}));
+function applyMarginColor(v){if(!/^#[0-9a-f]{6}$/i.test(v))return false;draft.color=v.toUpperCase();refreshEditor();return true}
+$('marginColor').addEventListener('input',e=>applyMarginColor(e.target.value));$('marginHex').addEventListener('change',e=>{if(!applyMarginColor(e.target.value))$('marginHex').value=draft.color});
+document.querySelectorAll('#swatches button').forEach(b=>b.addEventListener('click',()=>applyMarginColor(b.dataset.color)));
+$('eyedrop').onclick=async()=>{if(!('EyeDropper' in window)){$('eyeHint').textContent='Cuentagotas no disponible en este navegador. Usa la paleta o introduce un código HEX.';return}try{const result=await new EyeDropper().open();applyMarginColor(result.sRGBHex)}catch(e){if(e.name!=='AbortError')$('eyeHint').textContent='No se pudo tomar el color. Usa la paleta.'}};
+document.querySelectorAll('input[name=marginMode]').forEach(el=>el.addEventListener('change',()=>{if(el.checked){draft.marginMode=el.value;refreshEditor()}}));document.querySelectorAll('[data-reset]').forEach(b=>b.addEventListener('click',()=>{const key=b.dataset.reset;if(key==='crop'){Object.assign(draft,defaultCrop(items[active].side));$('aspect').value='free'}else if(key==='color')draft.color='#FFFFFF';else if(key==='margin'){draft.margin=0;draft.marginMode='inner'}else draft[key]=key==='zoom'?1:0;refreshEditor()}));$('fit').onclick=()=>{Object.assign(draft,defaultCrop(items[active].side));refreshEditor()};$('reset').onclick=()=>{draft=baseEdit(active);$('aspect').value='free';refreshEditor()};
+$('aspect').onchange=e=>{if(e.target.value==='free')return;const ratio=+e.target.value,aspectPixels=sourceCanvas.height/sourceCanvas.width;const desiredH=draft.w*ratio/aspectPixels;if(desiredH<=1-draft.y)draft.h=desiredH;else draft.w=draft.h*aspectPixels/ratio;refreshEditor()};
+const editCanvas=$('editCanvas');function pointerPos(e){const b=editCanvas.getBoundingClientRect();return{x:(e.clientX-b.left)/b.width,y:(e.clientY-b.top)/b.height}}
+editCanvas.addEventListener('pointerdown',e=>{if(!sourceCanvas)return;const p=pointerPos(e),r=draft,rad=12/Math.max(editCanvas.getBoundingClientRect().width,editCanvas.getBoundingClientRect().height);const corners=[['nw',r.x,r.y],['ne',r.x+r.w,r.y],['sw',r.x,r.y+r.h],['se',r.x+r.w,r.y+r.h]];let mode='move';for(const [id,x,y] of corners){if(Math.hypot((p.x-x),(p.y-y))<rad*1.7){mode=id;break}}if(mode==='move'&&(p.x<r.x||p.x>r.x+r.w||p.y<r.y||p.y>r.y+r.h))return;drag={mode,start:p,original:{...draft}};editCanvas.setPointerCapture(e.pointerId)});
+editCanvas.addEventListener('pointermove',e=>{if(!drag)return;const p=pointerPos(e),dx=p.x-drag.start.x,dy=p.y-drag.start.y,r=drag.original;let left=r.x,top=r.y,right=r.x+r.w,bottom=r.y+r.h;if(drag.mode==='move'){left=clamp(r.x+dx,0,1-r.w);top=clamp(r.y+dy,0,1-r.h);right=left+r.w;bottom=top+r.h}else{if(drag.mode.includes('w'))left=clamp(r.x+dx,0,right-.01);if(drag.mode.includes('e'))right=clamp(r.x+r.w+dx,left+.01,1);if(drag.mode.includes('n'))top=clamp(r.y+dy,0,bottom-.01);if(drag.mode.includes('s'))bottom=clamp(r.y+r.h+dy,top+.01,1)}if(e.shiftKey&&drag.mode!=='move'){const ratio=(r.w*sourceCanvas.width)/(r.h*sourceCanvas.height),anchorX=drag.mode.includes('w')?right:left,anchorY=drag.mode.includes('n')?bottom:top,signX=drag.mode.includes('w')?-1:1,signY=drag.mode.includes('n')?-1:1;let width=Math.abs(right-left),height=Math.abs(bottom-top),pxW=width*sourceCanvas.width,pxH=height*sourceCanvas.height;if(Math.abs(dx*sourceCanvas.width)>=Math.abs(dy*sourceCanvas.height))pxH=pxW/ratio;else pxW=pxH*ratio;const maxPixelW=(signX>0?1-anchorX:anchorX)*sourceCanvas.width,maxPixelH=(signY>0?1-anchorY:anchorY)*sourceCanvas.height;const factor=Math.min(1,maxPixelW/pxW,maxPixelH/pxH);pxW*=factor;pxH*=factor;const nx=anchorX+signX*pxW/sourceCanvas.width,ny=anchorY+signY*pxH/sourceCanvas.height;left=Math.min(anchorX,nx);right=Math.max(anchorX,nx);top=Math.min(anchorY,ny);bottom=Math.max(anchorY,ny)}Object.assign(draft,{x:left,y:top,w:right-left,h:bottom-top});refreshEditor()});
+for(const event of ['pointerup','pointercancel'])editCanvas.addEventListener(event,()=>{drag=null});
+$('save').onclick=async()=>{if(active<0)return;normalize(draft);const mode=$('apply').value,targets=items.map((_,i)=>i).filter(i=>mode==='all'||mode==='one'&&i===active||mode==='odd'&&i%2===0||mode==='even'&&i%2===1);for(const i of targets){const saved=structuredClone(draft);items[i].edit=identical(saved,baseEdit(i))?null:saved;if(items[i].url){URL.revokeObjectURL(items[i].url);items[i].url=null}items[i].el.querySelector('.image').textContent='Actualizando…';thumbObserver.observe(items[i].el)}closeEditor();status(`Se guardó la edición en ${targets.length} miniatura(s).`,100);setTimeout(hideStatus,1700)};
+function parseRange(value,n){const t=value.trim();if(!t)return Array.from({length:n},(_,i)=>i);const selected=[],seen=new Set();for(const token of t.split(',')){const v=token.trim();if(!v)throw Error('El rango contiene una entrada vacía.');const m=v.match(/^(\d+)(?:\s*-\s*(\d+))?$/);if(!m)throw Error('Rango inválido: '+v);const a=Number(m[1]),b=m[2]?Number(m[2]):a;if(a<1||b>n||b<a||b-a>n)throw Error(`Rango fuera de límites: ${v}. Hay ${n} mitades.`);for(let j=a;j<=b;j++)if(!seen.has(j)){seen.add(j);selected.push(j-1)}}return selected}
+function downloadBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}
+document.querySelectorAll('.format-card').forEach(b=>b.addEventListener('click',()=>{$('format').value=b.dataset.format;document.querySelectorAll('.format-card').forEach(c=>{const on=c===b;c.classList.toggle('active',on);c.setAttribute('aria-pressed',String(on))});$('format').dispatchEvent(new Event('change'))}));$('format').onchange=()=>{$('export').textContent=$('format').value==='pdf'?'Descargar PDF':'Descargar JPG'};
+$('cancelExport').onclick=()=>{cancelled=true;$('workText').textContent='Cancelando al terminar la página actual…'};
+$('export').onclick=async()=>{if(busy)return;let selected;try{selected=parseRange($('range').value,items.length);if(selected.length===0)throw Error('Selecciona al menos una página.')}catch(e){fail(e);return}const format=$('format').value,scale=+$('quality').value,q=+$('jpegQuality').value;busy=true;cancelled=false;$('export').disabled=true;$('cancelExport').classList.remove('hidden');const zip=(format==='jpg'&&selected.length>=2)?new JSZip():null;let doc=null;try{for(let k=0;k<selected.length;k++){if(cancelled)throw new Error('Exportación cancelada.');const i=selected[k],canvas=await resultCanvas(i,scale),blob=await canvasBlob(canvas,'image/jpeg',q),name=`cutpdf_mitad_${String(i+1).padStart(4,'0')}.jpg`;if(zip)zip.file(name,blob);else if(format==='jpg')downloadBlob(blob,name);else{const page=await pdf.getPage(items[i].page),vp=page.getViewport({scale:1}),edit=items[i].edit||baseEdit(i);page.cleanup();const m=edit.marginMode==='outer'?(edit.margin||0):0;const w=vp.width*edit.w*(1+2*m),h=vp.height*edit.h*(1+2*m);if(k===0){doc=new window.jspdf.jsPDF({unit:'pt',format:[w,h],orientation:w>h?'landscape':'portrait',compress:true})}else doc.addPage([w,h],w>h?'landscape':'portrait');const data=canvas.toDataURL('image/jpeg',q);doc.addImage(data,'JPEG',0,0,w,h,undefined,'FAST')}canvas.width=canvas.height=0;status(`Exportando ${k+1} de ${selected.length} mitades…`,100*(k+1)/selected.length);await wait()}if(cancelled)throw new Error('Exportación cancelada.');if(format==='pdf')downloadBlob(doc.output('blob'),'CutPDF_editado.pdf');if(zip){status('Comprimiendo archivos ZIP…',98);const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:5}});if(cancelled)throw Error('Exportación cancelada.');downloadBlob(blob,'CutPDF_imagenes.zip')}status('Exportación completada correctamente.',100);setTimeout(hideStatus,2500)}catch(e){if(e.message.includes('cancelada')){status('Exportación cancelada.',0,true)}else fail(e)}finally{busy=false;$('export').disabled=false;$('cancelExport').classList.add('hidden')}};
+
+// Móvil: opciones de guardado arriba, herramientas en panel situado sobre la barra.
+const mobileSaveOpen=$('mobileSaveOpen'),mobileSaveSheet=$('mobileSaveSheet');
+mobileSaveOpen.addEventListener('click',()=>{const opened=mobileSaveSheet.classList.toggle('open');mobileSaveOpen.setAttribute('aria-expanded',String(opened));});
+$('save').addEventListener('click',()=>{mobileSaveSheet.classList.remove('open');mobileSaveOpen.setAttribute('aria-expanded','false')});
+$('closeEditor').addEventListener('click',()=>mobileSaveSheet.classList.remove('open'));
+
+
+window.addEventListener('beforeunload',e=>{if(pdf){e.preventDefault();e.returnValue=''}});
+})();
+</script></body></html>
